@@ -71,7 +71,17 @@ pub fn print() {
         }
     }
 
-    match system::locker(compositor) {
+    let config = crate::config::Config::load(None);
+    let lock_override = config
+        .actions
+        .iter()
+        .find(|a| a.id == "lock")
+        .and_then(|a| a.run.clone());
+    let locker = lock_override.clone().or_else(|| system::locker(compositor));
+    match &locker {
+        Some(locker) if lock_override.is_some() => {
+            println!("  locker       {locker} (from the lock action)");
+        }
         Some(locker) => println!("  locker       {locker}"),
         None => {
             println!("  locker       none installed; Lock falls back to `loginctl lock-session`");
@@ -92,7 +102,7 @@ pub fn print() {
         caps.reboot.label(),
         caps.power_off.label()
     );
-    if caps.suspend.allows() && system::locker(compositor).is_none() {
+    if caps.suspend.allows() && locker.is_none() {
         println!("               warning: suspend has no locker; the machine would wake unlocked");
     }
 
