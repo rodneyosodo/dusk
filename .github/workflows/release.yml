@@ -1,0 +1,209 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release, for example v0.1.0
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 3
+  CARGO_HTTP_TIMEOUT: 60
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libvulkan-dev
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: Tag matches Cargo.toml
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          tag="${TAG#v}"
+          if [ "$version" != "$tag" ]; then
+            echo "::error::tag $TAG does not match Cargo.toml version $version"
+            exit 1
+          fi
+          echo "releasing dusk $version"
+
+      - name: Format
+        run: cargo fmt --package dusk -- --check
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Config check
+        run: cargo run -- check
+
+      - name: Built-in themes parse
+        run: cargo test theme::tests::every_builtin_theme_parses_without_problems
+
+      - name: Check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --workspace --no-deps --locked
+
+      - name: Check dependencies
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --locked
+
+  build:
+    name: build ${{ matrix.target }}
+    needs: verify
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libvulkan-dev
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ runner.os }}-${{ hashFiles('rust-toolchain.toml') }}
+
+      - name: Build
+        run: cargo build --release --locked --target "${{ matrix.target }}"
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          target="${{ matrix.target }}"
+          name="dusk-${version}-${target}"
+          mkdir -p "dist/${name}"
+          install -Dm755 "target/${target}/release/dusk" "dist/${name}/dusk"
+          install -Dm644 man/dusk.1 "dist/${name}/dusk.1"
+          install -Dm644 LICENSE "dist/${name}/LICENSE"
+          install -Dm644 README.md "dist/${name}/README.md"
+          install -Dm644 docs/THEMING.md "dist/${name}/THEMING.md"
+          install -Dm644 completions/dusk.bash "dist/${name}/completions/dusk.bash"
+          install -Dm644 completions/dusk.zsh "dist/${name}/completions/_dusk"
+          install -Dm644 completions/dusk.fish "dist/${name}/completions/dusk.fish"
+          tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+          ( cd dist && sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256" )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dusk-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+
+  release:
+    name: publish
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Source tarball with vendored crates and checksums
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          mkdir -p dist/src
+          git archive --format=tar.gz --prefix="dusk-${version}/" \
+            -o dist/src.tar.gz HEAD
+          tar -xzf dist/src.tar.gz -C dist/src
+          rm dist/src.tar.gz
+          # Bundle the crates and the pinned Rune commit so the AUR package can build offline.
+          ( cd "dist/src/dusk-${version}" && cargo vendor --locked vendor > .cargo/config.toml )
+          tar -C dist/src -czf "dist/dusk-${version}-source.tar.gz" "dusk-${version}"
+          ( cd dist && sha256sum ./*.tar.gz > SHA256SUMS )
+          ls -lh dist/dusk-${version}-source.tar.gz
+          cat dist/SHA256SUMS
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # A re-run after a failed build: replace the assets instead of erroring.
+            gh release upload "$TAG" dist/*.tar.gz dist/*.sha256 dist/SHA256SUMS --clobber
+          else
+            gh release create "$TAG" dist/*.tar.gz dist/*.sha256 dist/SHA256SUMS \
+              --verify-tag \
+              --title "dusk ${version}" \
+              --generate-notes
+          fi
