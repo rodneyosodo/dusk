@@ -60,28 +60,50 @@ pub fn run(launch: Launch) -> Result<(), String> {
         }
         if !rune::is_headless() {
             let close_app = app_handle.clone();
-            crate::system::watch_session(Arc::new(move || close_app.quit()));
-            // Rune enumerates displays once. If Hyprland's monitor set changes while the menu is
-            // open, close it rather than leave a surface on a display that no longer exists or
-            // miss a newly attached one. The next launch rebuilds the surfaces.
+            crate::system::watch_session(Arc::new(move || {
+                if std::env::var_os("DUSK_DEBUG").is_some() {
+                    eprintln!("dusk: session watcher quit");
+                }
+                if !model::action_pending() {
+                    close_app.quit();
+                }
+            }));
+            // Rune enumerates displays once. Compare against that same snapshot, not a fresh
+            // query, so a topology change between enumeration and now cannot hide. A failed
+            // query is ignored; only a successful different topology closes the menu.
             if launch.compositor == Compositor::Hyprland {
-                let initial: Vec<String> = crate::compositor::hyprland::monitors()
-                    .into_iter()
-                    .map(|m| m.name)
+                let baseline: Vec<(String, u32, u32, f64)> = displays
+                    .iter()
+                    .filter_map(|d| {
+                        d.name
+                            .clone()
+                            .map(|name| (name, d.size.0, d.size.1, d.scale))
+                    })
                     .collect();
-                if !initial.is_empty() {
+                if !baseline.is_empty() {
                     let close_app = app_handle.clone();
                     std::thread::Builder::new()
                         .name("dusk-monitors".into())
                         .spawn(move || {
                             loop {
                                 std::thread::sleep(std::time::Duration::from_secs(2));
-                                let now: Vec<String> = crate::compositor::hyprland::monitors()
+                                let Some(now) = crate::compositor::hyprland::monitors_checked()
+                                else {
+                                    continue;
+                                };
+                                let now: Vec<(String, u32, u32, f64)> = now
                                     .into_iter()
-                                    .map(|m| m.name)
+                                    .map(|m| (m.name, m.width, m.height, m.scale))
                                     .collect();
-                                if now != initial {
-                                    close_app.quit();
+                                if now != baseline {
+                                    if std::env::var_os("DUSK_DEBUG").is_some() {
+                                        eprintln!(
+                                            "dusk: monitors changed: baseline={baseline:?} now={now:?}"
+                                        );
+                                    }
+                                    if !model::action_pending() {
+                                        close_app.quit();
+                                    }
                                     break;
                                 }
                             }

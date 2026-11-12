@@ -165,70 +165,143 @@ pub fn inhibitors() -> Result<Vec<Inhibitor>, String> {
 /// Watch logind for the session locking and the machine preparing to sleep. Focus loss covers
 /// most overlays, but a lock screen or suspend can keep the compositor's keyboard focus; this
 /// closes the menu before it can sit over a locked or resumed screen.
+///
+/// The watcher owns its runtime: `inhibitors()` and `blocker()` use the shared single-thread
+/// runtime, and a long-lived `block_on` on that runtime would deadlock them during a power action.
 pub fn watch_session(close: std::sync::Arc<dyn Fn() + Send + Sync>) {
+    use std::sync::mpsc;
+    let (ready_tx, ready_rx) = mpsc::channel();
     std::thread::Builder::new()
         .name("dusk-logind".into())
         .spawn(move || {
-            let result = runtime().block_on(async {
-                let conn = zbus::Connection::system().await?;
-                let manager = zbus::Proxy::new(
-                    &conn,
-                    "org.freedesktop.login1",
-                    "/org/freedesktop/login1",
-                    "org.freedesktop.login1.Manager",
-                )
-                .await?;
-                let mut sleep = manager.receive_signal("PrepareForSleep").await?;
-                let path: Option<zbus::OwnedObjectPath> = match std::env::var("XDG_SESSION_ID") {
-                    Ok(id) => manager.call("GetSession", &id).await.ok(),
-                    Err(_) => manager
-                        .call("GetSessionByPID", &(std::process::id()))
-                        .await
-                        .ok(),
-                };
-                let mut lock = match path {
-                    Some(path) => {
-                        let session = zbus::Proxy::new(
-                            &conn,
-                            "org.freedesktop.login1",
-                            path.as_str(),
-                            "org.freedesktop.login1.Session",
-                        )
-                        .await?;
-                        Some(session.receive_signal("Lock").await?)
-                    }
-                    None => None,
-                };
-                if let Some(lock) = lock.as_mut() {
-                    use futures_util::StreamExt;
-                    loop {
-                        tokio::select! {
-                            Some(message) = sleep.next() => {
-                                if message.body().deserialize::<bool>().unwrap_or(false) {
-                                    close();
-                                }
-                            }
-                            Some(_) = lock.next() => close(),
-                            else => break,
-                        }
-                    }
-                } else {
-                    use futures_util::StreamExt;
-                    while let Some(message) = sleep.next().await {
-                        if message.body().deserialize::<bool>().unwrap_or(false) {
-                            close();
-                        }
-                    }
+            let Ok(runtime) = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            else {
+                let _ = ready_tx.send(());
+                return;
+            };
+            let mut announced = false;
+            loop {
+                let result =
+                    runtime.block_on(watch_session_once(&close, &ready_tx, &mut announced));
+                if !announced {
+                    let _ = ready_tx.send(());
+                    announced = true;
                 }
-                Ok::<(), zbus::Error>(())
-            });
-            if let Err(error) = result
-                && std::env::var_os("DUSK_DEBUG").is_some()
-            {
-                eprintln!("dusk: session watch unavailable: {error}");
+                match result {
+                    Ok(true) => break,
+                    Ok(false) => {}
+                    Err(error) if std::env::var_os("DUSK_DEBUG").is_some() => {
+                        eprintln!("dusk: session watch unavailable: {error}");
+                    }
+                    Err(_) => {}
+                }
+                std::thread::sleep(std::time::Duration::from_secs(2));
             }
         })
         .ok();
+    // Give the watcher a moment to install its subscriptions before the menu is shown. If
+    // logind is slow or absent, the menu still opens and the watcher keeps retrying.
+    let _ = ready_rx.recv_timeout(std::time::Duration::from_millis(300));
+}
+
+async fn watch_session_once(
+    close: &std::sync::Arc<dyn Fn() + Send + Sync>,
+    ready: &std::sync::mpsc::Sender<()>,
+    announced: &mut bool,
+) -> Result<bool, zbus::Error> {
+    use futures_util::StreamExt;
+    let conn = zbus::Connection::system().await?;
+    let manager = zbus::Proxy::new(
+        &conn,
+        "org.freedesktop.login1",
+        "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager",
+    )
+    .await?;
+    let mut sleep = manager.receive_signal("PrepareForSleep").await?;
+    let path = session_path(&manager).await;
+    if std::env::var_os("DUSK_DEBUG").is_some() {
+        eprintln!("dusk: logind session path {path:?}");
+    }
+    let mut lock = match path {
+        Some(path) => {
+            let session = zbus::Proxy::new(
+                &conn,
+                "org.freedesktop.login1",
+                path.as_str(),
+                "org.freedesktop.login1.Session",
+            )
+            .await?;
+            let stream = session.receive_signal("Lock").await?;
+            if std::env::var_os("DUSK_DEBUG").is_some() {
+                eprintln!("dusk: logind Lock subscription installed");
+            }
+            // A lock between resolving the path and subscribing is not replayed; the property
+            // catches that window.
+            let locked: bool = session.get_property("LockedHint").await.unwrap_or(false);
+            if locked {
+                if std::env::var_os("DUSK_DEBUG").is_some() {
+                    eprintln!("dusk: logind LockedHint true at setup");
+                }
+                if !*announced {
+                    let _ = ready.send(());
+                    *announced = true;
+                }
+                close();
+                return Ok(true);
+            }
+            Some(stream)
+        }
+        None => None,
+    };
+    if !*announced {
+        let _ = ready.send(());
+        *announced = true;
+    }
+    if let Some(lock) = lock.as_mut() {
+        loop {
+            tokio::select! {
+                Some(message) = sleep.next() => {
+                    if message.body().deserialize::<bool>().unwrap_or(false) {
+                        if std::env::var_os("DUSK_DEBUG").is_some() {
+                            eprintln!("dusk: logind PrepareForSleep");
+                        }
+                        close();
+                        return Ok(true);
+                    }
+                }
+                Some(_) = lock.next() => {
+                    if std::env::var_os("DUSK_DEBUG").is_some() {
+                        eprintln!("dusk: logind Lock signal");
+                    }
+                    close();
+                    return Ok(true);
+                }
+                else => return Ok(false),
+            }
+        }
+    }
+    while let Some(message) = sleep.next().await {
+        if message.body().deserialize::<bool>().unwrap_or(false) {
+            close();
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+async fn session_path(manager: &zbus::Proxy<'_>) -> Option<zbus::OwnedObjectPath> {
+    if let Ok(id) = std::env::var("XDG_SESSION_ID")
+        && let Ok(path) = manager.call("GetSession", &id).await
+    {
+        return Some(path);
+    }
+    manager
+        .call("GetSessionByPID", &std::process::id())
+        .await
+        .ok()
 }
 
 /// The first inhibitor that blocks `what` (`shutdown` for power off as well as reboot).

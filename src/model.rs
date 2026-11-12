@@ -30,6 +30,7 @@ pub struct Context {
 static CONTEXT: OnceLock<Mutex<Context>> = OnceLock::new();
 static HANDLES: OnceLock<Arc<Handles>> = OnceLock::new();
 static APP: OnceLock<AppHandle<MenuState>> = OnceLock::new();
+static ACTION_PENDING: AtomicBool = AtomicBool::new(false);
 
 pub fn set_context(context: Context) {
     let slot = CONTEXT.get_or_init(|| Mutex::new(context.clone()));
@@ -55,6 +56,12 @@ pub fn set_handles(handles: Arc<Handles>) {
 
 pub fn set_app(app: AppHandle<MenuState>) {
     let _ = APP.set(app);
+}
+
+/// Whether an action has been chosen and its exit animation/execution is in flight. Watchers
+/// must not quit the process while this is true, or the action is lost.
+pub fn action_pending() -> bool {
+    ACTION_PENDING.load(Ordering::Acquire)
 }
 
 pub fn handles() -> Option<Arc<Handles>> {
@@ -90,6 +97,9 @@ impl Handles {
     pub fn begin_exit(&self, state: &MenuState, action: Option<Action>) {
         if self.exiting.swap(true, Ordering::AcqRel) {
             return;
+        }
+        if action.is_some() {
+            ACTION_PENDING.store(true, Ordering::Release);
         }
         let selected = action.as_ref().map(|a| a.id.clone());
         let mode = state.mode;

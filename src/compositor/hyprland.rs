@@ -91,7 +91,16 @@ pub fn parse_monitors(json: &str) -> Vec<Monitor> {
 }
 
 pub fn monitors() -> Vec<Monitor> {
-    request("j/monitors").map_or_else(Vec::new, |json| parse_monitors(&json))
+    monitors_checked().unwrap_or_default()
+}
+
+/// Monitor list, or `None` when the IPC request or its JSON failed. An empty list is a valid
+/// answer; callers that poll can retry `None` without treating it as a topology change.
+pub fn monitors_checked() -> Option<Vec<Monitor>> {
+    let json = request("j/monitors")?;
+    let value: serde_json::Value = serde_json::from_str(&json).ok()?;
+    value.as_array()?;
+    Some(parse_monitors(&json))
 }
 
 pub fn focused_monitor() -> Option<String> {
