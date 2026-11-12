@@ -22,10 +22,29 @@ Runtime dependencies: a Wayland session with `zwlr_layer_shell_v1` (Hyprland is 
 
 Build dependencies (Arch): `rust` (1.95 or newer), `libxkbcommon`, `wayland`, `vulkan-icd-loader`.
 
+From a checkout:
+
 ```sh
 cargo build --release
 sudo install -Dm755 target/release/dusk /usr/bin/dusk
 ```
+
+Or let Cargo build and install it into `~/.cargo/bin`:
+
+```sh
+# latest tagged release
+cargo install --git https://github.com/rodneyosodo/dusk --tag v0.1.0 --locked dusk
+
+# main branch
+cargo install --git https://github.com/rodneyosodo/dusk --branch main --locked dusk
+
+# the checkout you are in
+cargo install --path . --locked
+```
+
+Replace `v0.1.0` with the latest tag. `cargo install` fetches the pinned Rune fork commit, so it needs network access. Make sure `~/.cargo/bin` is on `PATH`.
+
+Rune is pre-release and upstream does not take pull requests. dusk pins [the fork](https://github.com/rodneyosodo/rune) at commit `841b58ae` (tag `dusk-781e2b6-focus-keymap`), which is `781e2b6` plus two Wayland layer-surface fixes. A clean build fetches that commit once; nothing is vendored in the repo. The fixes and the bump procedure are in [docs/RUNE-PATCH.md](docs/RUNE-PATCH.md).
 
 ### Hyprland
 
