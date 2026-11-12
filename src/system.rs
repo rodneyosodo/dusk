@@ -666,6 +666,10 @@ mod tests {
                     .is_err(),
                 "resuming must not close the menu"
             );
+            assert!(
+                !closed.load(Ordering::SeqCst),
+                "resuming must not call close"
+            );
             Login1::prepare_for_sleep(&emitter, true)
                 .await
                 .expect("emit sleep");
