@@ -26,7 +26,11 @@ Portrait, 4K and scale:
 cargo run -- --scene idle --snap /tmp/portrait.png --size 800x1000
 cargo run -- --scene many --snap /tmp/4k.png --size 3840x2160
 cargo run -- --scene idle --snap /tmp/2x.png --size 1920x1080 --scale 2
+cargo run -- --scene idle --snap /tmp/narrow.png --size 640x320
 ```
+
+A five-card row shrinks to fit a short screen while the labels stay legible; below that it becomes a
+scrolling list. The many-action portrait should stay a grid.
 
 Motion frames:
 

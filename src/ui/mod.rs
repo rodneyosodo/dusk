@@ -15,6 +15,8 @@ use crate::theme::{Layout, Tokens};
 use card::{LIFT, card, keycap, list_row};
 
 const EDGE: f32 = 64.0;
+/// Height kept for the clock and hint line when a row-sized board is present.
+const BOARD_RESERVE: f32 = 260.0;
 
 pub fn menu_view(s: &MenuState, cx: &mut Cx<MenuState>) -> El {
     if s.reduced_override {
@@ -26,7 +28,14 @@ pub fn menu_view(s: &MenuState, cx: &mut Cx<MenuState>) -> El {
     let (root_w, root_h) = cx
         .layout_size("dusk/root")
         .map_or((1920.0, 1080.0), |v| (v[0], v[1]));
-    let ui_scale = (root_w / 1920.0).min(root_h / 1080.0).clamp(0.82, 1.8);
+    let ui_scale = fit_ui_scale(
+        (root_w / 1920.0).min(root_h / 1080.0).clamp(0.82, 1.8),
+        s.actions.len(),
+        t,
+        s.layout(),
+        root_w,
+        root_h,
+    );
     let (intro, exit) = timings(s, t, reduced);
     let fade = intro * exit;
 
@@ -47,15 +56,21 @@ pub fn menu_view(s: &MenuState, cx: &mut Cx<MenuState>) -> El {
         );
     }
 
-    let layout = s.layout();
+    let layout = effective_layout(
+        s.actions.len(),
+        t,
+        s.layout(),
+        root_w / ui_scale,
+        root_h / ui_scale,
+    );
     let board = if t.compact {
         pill(s, t, exit, reduced)
-    } else if layout == Layout::List {
-        list(s, t, root_w, root_h, exit, reduced)
-    } else if layout == Layout::Grid || !fits_row(s, t, root_w / ui_scale) {
-        grid_view(s, t, root_w / ui_scale, root_h / ui_scale, exit, reduced)
     } else {
-        row_view(s, t, exit, reduced)
+        match layout {
+            Layout::List => list(s, t, root_w / ui_scale, root_h / ui_scale, exit, reduced),
+            Layout::Grid => grid_view(s, t, root_w / ui_scale, root_h / ui_scale, exit, reduced),
+            Layout::Row => row_view(s, t, exit, reduced),
+        }
     };
 
     let rise = if reduced { 0.0 } else { (1.0 - intro) * 12.0 };
@@ -265,8 +280,51 @@ fn blocked(t: &Tokens, who: &str) -> El {
         )
 }
 
-fn fits_row(s: &MenuState, t: &Tokens, root_w: f32) -> bool {
-    board_width(t, s.actions.len()) <= root_w - 2.0 * EDGE
+/// The shape actually drawn. A row that does not fit becomes a grid only when every row still
+/// fits vertically; on very short screens a scrolling list is the usable fallback.
+/// On a short screen the row can be kept by scaling it down a little. This only kicks in when a
+/// grid would not fit vertically either; the floor keeps labels legible.
+fn fit_ui_scale(
+    ui_scale: f32,
+    n: usize,
+    t: &Tokens,
+    requested: Layout,
+    root_w: f32,
+    root_h: f32,
+) -> f32 {
+    if t.compact || requested != Layout::Row {
+        return ui_scale;
+    }
+    let (w, h) = (root_w / ui_scale, root_h / ui_scale);
+    if fits_row(n, t, w) || grid_fits(n, t, w, h) {
+        return ui_scale;
+    }
+    (root_w / (board_width(t, n) + 2.0 * EDGE + 1.0)).clamp(0.55, ui_scale)
+}
+
+fn effective_layout(n: usize, t: &Tokens, requested: Layout, root_w: f32, root_h: f32) -> Layout {
+    if t.compact || matches!(requested, Layout::List | Layout::Grid) {
+        return requested;
+    }
+    if fits_row(n, t, root_w) {
+        return Layout::Row;
+    }
+    if grid_fits(n, t, root_w, root_h) {
+        Layout::Grid
+    } else {
+        Layout::List
+    }
+}
+
+fn fits_row(n: usize, t: &Tokens, root_w: f32) -> bool {
+    board_width(t, n) <= root_w - 2.0 * EDGE
+}
+
+fn grid_fits(n: usize, t: &Tokens, root_w: f32, root_h: f32) -> bool {
+    let cols = cols_for(t, root_w, n);
+    let rows = n.div_ceil(cols.max(1));
+    let board_h = rows as f32 * t.card_h + rows.saturating_sub(1) as f32 * t.gap;
+    board_h <= root_h - 2.0 * EDGE - BOARD_RESERVE
 }
 
 fn board_width(t: &Tokens, cols: usize) -> f32 {
@@ -379,9 +437,9 @@ fn grid_view(s: &MenuState, t: &Tokens, root_w: f32, root_h: f32, exit: f32, red
         t.radius,
         lift,
     );
-    if board_h > root_h - 2.0 * EDGE - 260.0 {
+    if board_h > root_h - 2.0 * EDGE - BOARD_RESERVE {
         col()
-            .max_h((root_h - 2.0 * EDGE - 260.0).max(t.card_h))
+            .max_h((root_h - 2.0 * EDGE - BOARD_RESERVE).max(t.card_h))
             .min_h(0.0)
             .scroll(ScrollSpec {
                 stick_bottom: false,
@@ -435,7 +493,12 @@ fn pill(s: &MenuState, t: &Tokens, exit: f32, reduced: bool) -> El {
 
 fn list(s: &MenuState, t: &Tokens, root_w: f32, root_h: f32, exit: f32, reduced: bool) -> El {
     let row_h = t.card_h;
-    let w = t.card_w.min(root_w - 2.0 * EDGE);
+    let available = (root_w - 2.0 * EDGE).max(1.0);
+    let w = if t.mono {
+        t.card_w.min(available)
+    } else {
+        available.min(640.0)
+    };
     let n = s.actions.len();
     let h = n as f32 * row_h + n.saturating_sub(1) as f32 * t.gap;
     let mut inner = el().key("dusk/board").w(w).h(h).child(
@@ -479,5 +542,60 @@ fn list(s: &MenuState, t: &Tokens, root_w: f32, root_h: f32, exit: f32, reduced:
             .child(all)
     } else {
         all
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_short_screen_shrinks_the_row_instead_of_clipping() {
+        let t = Tokens::default();
+        let scale = fit_ui_scale(0.82, 5, &t, Layout::Row, 640.0, 320.0);
+        assert!(scale < 0.82);
+        assert!(scale >= 0.55);
+        assert!(fits_row(5, &t, 640.0 / scale));
+    }
+
+    #[test]
+    fn a_short_narrow_row_falls_back_to_a_list() {
+        let t = Tokens::default();
+        // 1280x720 at 2x: the five-card row does not fit, and neither do two grid rows.
+        assert_eq!(
+            effective_layout(5, &t, Layout::Row, 640.0, 320.0),
+            Layout::List
+        );
+    }
+
+    #[test]
+    fn a_portrait_screen_keeps_the_many_action_grid() {
+        let t = Tokens::default();
+        assert_eq!(
+            effective_layout(11, &t, Layout::Row, 800.0, 1000.0),
+            Layout::Grid
+        );
+    }
+
+    #[test]
+    fn a_wide_screen_keeps_the_row() {
+        let t = Tokens::default();
+        assert_eq!(
+            effective_layout(5, &t, Layout::Row, 1920.0, 1080.0),
+            Layout::Row
+        );
+    }
+
+    #[test]
+    fn explicit_layouts_are_not_overridden() {
+        let t = Tokens::default();
+        assert_eq!(
+            effective_layout(5, &t, Layout::Grid, 640.0, 320.0),
+            Layout::Grid
+        );
+        assert_eq!(
+            effective_layout(5, &t, Layout::List, 1920.0, 1080.0),
+            Layout::List
+        );
     }
 }
