@@ -52,7 +52,7 @@ A slash value is a percentage (`40` = 40%) unless it contains a decimal point (`
 | `backdrop-bottom` | `#2b1220/66`   | bottom of the backdrop gradient                                             |
 | `bloom-a`         | `#5b4bff/30`   | soft glow in the top-left corner                                            |
 | `bloom-b`         | `#ff6a4d/22`   | soft glow in the bottom-right corner                                        |
-| `card`            | `#ffffff/6`    | unselected card glass                                                       |
+| `card`            | `#0b0a12/62`   | unselected card and selected highlight glass                                |
 | `card-border`     | `#ffffff/12`   | card hairline (brighter at the top) and glass sheen                         |
 | `shadow`          | `#000000/55`   | card, highlight and vignette shadow                                         |
 | `icon`            | `#ffffff/96`   | icon ink                                                                    |
@@ -105,6 +105,11 @@ Under the system Reduce Motion setting, the entrance becomes a 150 ms fade with 
 | `header`  | `#true`  | the time and date above the cards                      |
 
 These are looks, not layouts; `halo` also sets a larger radius and small dim, and `mono` sets `layout "list"` and transparent cards.
+
+## Preview
+
+`dusk preview` watches both `config.kdl` and the selected theme file, so editing either one reloads
+the live menu. Built-in themes are embedded and do not have a file to watch.
 
 ## Built-in themes
 

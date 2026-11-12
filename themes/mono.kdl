@@ -8,7 +8,7 @@ tokens {
     orb-size 0
     bloom-a "#a8e6cf/6"
     bloom-b "#a8e6cf/0"
-    dim "#000000/72"
+    dim "#000000/88"
     backdrop-top "#101014/40"
     backdrop-bottom "#181014/34"
     card "#000000/0"
@@ -42,6 +42,6 @@ tokens "light" {
     shadow "#000000/10"
     icon "#177f72"
     text "#1f1d1a"
-    text-dim "#000000/55"
+    text-dim "#000000/78"
     accent "#177f72"
 }

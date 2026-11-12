@@ -1,0 +1,33 @@
+# Maintainer: Rodney Osodo <rodney@rodneyosodo.com>
+pkgname=dusk
+pkgver=0.1.2
+pkgrel=1
+pkgdesc="A logout and power menu for Wayland compositors, drawn with Rune"
+arch=('x86_64' 'aarch64')
+url="https://github.com/rodneyosodo/dusk"
+license=('MIT')
+depends=(
+    'gcc-libs'
+    'libxkbcommon'
+    'wayland'
+    'vulkan-icd-loader'
+)
+makedepends=('cargo' 'rust')
+# The release source tarball contains vendored crates, so this builds offline.
+source=("dusk-$pkgver-source.tar.gz::$url/releases/download/v$pkgver/dusk-$pkgver-source.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "$pkgname-$pkgver"
+    cargo build --release --locked --offline
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+    install -Dm755 target/release/dusk "$pkgdir/usr/bin/dusk"
+    install -Dm644 man/dusk.1 "$pkgdir/usr/share/man/man1/dusk.1"
+    install -Dm644 completions/dusk.bash "$pkgdir/usr/share/bash-completion/completions/dusk"
+    install -Dm644 completions/dusk.zsh "$pkgdir/usr/share/zsh/site-functions/_dusk"
+    install -Dm644 completions/dusk.fish "$pkgdir/usr/share/fish/vendor_completions.d/dusk.fish"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

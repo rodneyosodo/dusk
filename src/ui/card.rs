@@ -45,8 +45,15 @@ pub fn card(
         1.0
     };
 
+    let accessible = if armed.is_some() {
+        armed_label(action)
+    } else {
+        action.label.clone()
+    };
     let mut cell = col()
         .key(format!("dusk/card/{}", action.id))
+        .role("button")
+        .label(accessible)
         .w_full()
         .h_full()
         .center()
@@ -268,6 +275,8 @@ pub fn list_row(
     };
     let mut r = row()
         .key(format!("dusk/card/{}", action.id))
+        .role("button")
+        .label(label.clone())
         .w(w)
         .h(h)
         .px(t.padding)

@@ -61,9 +61,6 @@ pub fn run(launch: Launch) -> Result<(), String> {
         if !rune::is_headless() {
             let close_app = app_handle.clone();
             crate::system::watch_session(Arc::new(move || {
-                if std::env::var_os("DUSK_DEBUG").is_some() {
-                    eprintln!("dusk: session watcher quit");
-                }
                 if !model::action_pending() {
                     close_app.quit();
                 }
@@ -96,11 +93,6 @@ pub fn run(launch: Launch) -> Result<(), String> {
                                     .map(|m| (m.name, m.width, m.height, m.scale))
                                     .collect();
                                 if now != baseline {
-                                    if std::env::var_os("DUSK_DEBUG").is_some() {
-                                        eprintln!(
-                                            "dusk: monitors changed: baseline={baseline:?} now={now:?}"
-                                        );
-                                    }
                                     if !model::action_pending() {
                                         close_app.quit();
                                     }

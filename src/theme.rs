@@ -112,7 +112,7 @@ impl Tokens {
             dim: hex("#07060c").expect("valid").alpha(0.62),
             backdrop_top: hex("#1a1433").expect("valid").alpha(0.70),
             backdrop_bottom: hex("#2b1220").expect("valid").alpha(0.66),
-            card: Color::WHITE.alpha(0.06),
+            card: hex("#0b0a12").expect("valid").alpha(0.62),
             card_border: Color::WHITE.alpha(0.12),
             shadow: Color::BLACK.alpha(0.55),
             icon: Color::WHITE.alpha(0.96),
@@ -159,7 +159,7 @@ impl Tokens {
         t.bloom_b = hex("#ff9a7a").expect("valid").alpha(0.24);
         t.icon = hex("#211a2a").expect("valid");
         t.text = hex("#211a2a").expect("valid");
-        t.text_dim = Color::BLACK.alpha(0.55);
+        t.text_dim = Color::BLACK.alpha(0.78);
         t.selected_text = Color::WHITE;
         t.warning = hex("#c2412d").expect("valid");
         t.lock = hex("#2c6fb5").expect("valid");
@@ -188,6 +188,8 @@ pub struct Theme {
     pub layout: Layout,
     pub dark: Tokens,
     pub light: Tokens,
+    /// The theme file a preview should watch; `None` for a built-in.
+    pub source: Option<PathBuf>,
 }
 
 impl Default for Theme {
@@ -197,6 +199,7 @@ impl Default for Theme {
             layout: Layout::Row,
             dark: Tokens::dusk_dark(),
             light: Tokens::dusk_light(),
+            source: None,
         }
     }
 }
@@ -229,12 +232,19 @@ impl Theme {
         let mut theme = if let Some((theme, p)) = Theme::builtin(name) {
             problems.extend(p);
             theme
-        } else if let Some(source) = read_candidate(name, beside) {
+        } else if let Some((source, source_path)) = read_candidate(name, beside) {
             let mut theme = Theme {
                 id: name.into(),
+                source: Some(source_path.clone()),
                 ..Theme::default()
             };
-            apply_theme_source(&mut theme, &source.0, &source.1, &mut problems);
+            apply_theme_source(
+                &mut theme,
+                &source,
+                &source_path.display().to_string(),
+                &mut problems,
+            );
+            theme.source = Some(source_path);
             theme
         } else {
             problems.push(Problem::new(
@@ -268,7 +278,7 @@ impl Theme {
     }
 }
 
-fn read_candidate(name: &str, beside: Option<&Path>) -> Option<(String, String)> {
+fn read_candidate(name: &str, beside: Option<&Path>) -> Option<(String, PathBuf)> {
     let expanded = if let Some(rest) = name.strip_prefix("~/") {
         std::env::var_os("HOME").map_or_else(
             || PathBuf::from(name),
@@ -281,20 +291,16 @@ fn read_candidate(name: &str, beside: Option<&Path>) -> Option<(String, String)>
     if path.is_file() {
         return std::fs::read_to_string(path)
             .ok()
-            .map(|s| (s, name.to_owned()));
+            .map(|s| (s, path.to_path_buf()));
     }
     if let Some(dir) = beside {
         let direct = dir.join(name);
         if direct.is_file() {
-            return std::fs::read_to_string(&direct)
-                .ok()
-                .map(|s| (s, direct.display().to_string()));
+            return std::fs::read_to_string(&direct).ok().map(|s| (s, direct));
         }
         let p = dir.join("themes").join(format!("{name}.kdl"));
         if p.is_file() {
-            return std::fs::read_to_string(&p)
-                .ok()
-                .map(|s| (s, p.display().to_string()));
+            return std::fs::read_to_string(&p).ok().map(|s| (s, p));
         }
     }
     if !name.contains('/')
@@ -302,9 +308,7 @@ fn read_candidate(name: &str, beside: Option<&Path>) -> Option<(String, String)>
     {
         let p = config.join("themes").join(format!("{name}.kdl"));
         if p.is_file() {
-            return std::fs::read_to_string(&p)
-                .ok()
-                .map(|s| (s, p.display().to_string()));
+            return std::fs::read_to_string(&p).ok().map(|s| (s, p));
         }
     }
     None
@@ -780,5 +784,70 @@ mod tests {
         assert!(problems.is_empty(), "{problems:?}");
         assert_eq!(tokens.accent, hex("#ff0000").unwrap());
         assert!((tokens.card.a - 0.2).abs() < 1e-6);
+    }
+    fn over(top: Color, bottom: Color) -> Color {
+        let a = top.a + bottom.a * (1.0 - top.a);
+        if a <= 0.0 {
+            return Color::TRANSPARENT;
+        }
+        let mix = |t: f32, b: f32| (t * top.a + b * bottom.a * (1.0 - top.a)) / a;
+        Color {
+            r: mix(top.r, bottom.r),
+            g: mix(top.g, bottom.g),
+            b: mix(top.b, bottom.b),
+            a,
+        }
+    }
+
+    fn contrast(a: Color, b: Color) -> f32 {
+        let (x, y) = (a.luminance(), b.luminance());
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    #[test]
+    fn text_holds_contrast_on_the_worst_wallpaper() {
+        for id in ["dusk", "halo", "mono"] {
+            let (theme, _) = Theme::builtin(id).expect("built-in theme");
+            for (name, t) in [("dark", &theme.dark), ("light", &theme.light)] {
+                for wallpaper in [Color::WHITE, Color::BLACK] {
+                    let bg = over(t.card, over(t.dim, wallpaper));
+                    let text = over(t.text, bg);
+                    let dim = over(t.text_dim, bg);
+                    let icon = over(t.icon, bg);
+                    assert!(
+                        contrast(text, bg) >= 4.5,
+                        "{id} {name} text contrast {:.2} on {}",
+                        contrast(text, bg),
+                        wallpaper.hex()
+                    );
+                    assert!(
+                        contrast(dim, bg) >= 3.0,
+                        "{id} {name} dim contrast {:.2} on {}",
+                        contrast(dim, bg),
+                        wallpaper.hex()
+                    );
+                    assert!(
+                        contrast(icon, bg) >= 3.0,
+                        "{id} {name} icon contrast {:.2} on {}",
+                        contrast(icon, bg),
+                        wallpaper.hex()
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn a_file_theme_records_the_source_path() {
+        let dir = std::env::temp_dir().join(format!("dusk-theme-test-{}", std::process::id()));
+        let themes = dir.join("themes");
+        std::fs::create_dir_all(&themes).unwrap();
+        std::fs::write(themes.join("foo.kdl"), "extends \"dusk\"\n").unwrap();
+        let (theme, problems) = Theme::load("foo", Some(&dir));
+        assert!(problems.is_empty(), "{problems:?}");
+        assert_eq!(
+            theme.source.as_deref(),
+            Some(themes.join("foo.kdl").as_path())
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

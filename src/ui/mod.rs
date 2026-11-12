@@ -289,7 +289,7 @@ fn highlight(s: &MenuState, t: &Tokens, x: f32, y: f32, w: f32, h: f32, radius: 
         .size(w, h)
         .radius(radius)
         .continuous_corners()
-        .fill(hue.alpha(if mono { 0.10 } else { 0.14 }))
+        .fill(t.card)
         .gradient(hue.alpha(if mono { 0.10 } else { 0.24 }), hue.alpha(0.04))
         .border_gradient(
             1.0,

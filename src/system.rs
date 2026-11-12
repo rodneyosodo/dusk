@@ -222,9 +222,6 @@ async fn watch_session_once(
     .await?;
     let mut sleep = manager.receive_signal("PrepareForSleep").await?;
     let path = session_path(&manager).await;
-    if std::env::var_os("DUSK_DEBUG").is_some() {
-        eprintln!("dusk: logind session path {path:?}");
-    }
     let mut lock = match path {
         Some(path) => {
             let session = zbus::Proxy::new(
@@ -235,16 +232,10 @@ async fn watch_session_once(
             )
             .await?;
             let stream = session.receive_signal("Lock").await?;
-            if std::env::var_os("DUSK_DEBUG").is_some() {
-                eprintln!("dusk: logind Lock subscription installed");
-            }
             // A lock between resolving the path and subscribing is not replayed; the property
             // catches that window.
             let locked: bool = session.get_property("LockedHint").await.unwrap_or(false);
             if locked {
-                if std::env::var_os("DUSK_DEBUG").is_some() {
-                    eprintln!("dusk: logind LockedHint true at setup");
-                }
                 if !*announced {
                     let _ = ready.send(());
                     *announced = true;
@@ -265,17 +256,11 @@ async fn watch_session_once(
             tokio::select! {
                 Some(message) = sleep.next() => {
                     if message.body().deserialize::<bool>().unwrap_or(false) {
-                        if std::env::var_os("DUSK_DEBUG").is_some() {
-                            eprintln!("dusk: logind PrepareForSleep");
-                        }
                         close();
                         return Ok(true);
                     }
                 }
                 Some(_) = lock.next() => {
-                    if std::env::var_os("DUSK_DEBUG").is_some() {
-                        eprintln!("dusk: logind Lock signal");
-                    }
                     close();
                     return Ok(true);
                 }

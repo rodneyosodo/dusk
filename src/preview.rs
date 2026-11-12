@@ -1,15 +1,13 @@
 //! `dusk preview`: watch the config's mtime and swap the live menu's look without restarting.
 //! Actions only print.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use crate::actions;
 use crate::config::Config;
 use crate::model::{self, Context};
-use crate::problem::Problem;
-use crate::theme::Theme;
 
 pub fn start(launch: crate::surfaces::Launch) {
     let Some(path) = launch.path.clone().or_else(|| launch.config.source.clone()) else {
@@ -24,13 +22,16 @@ pub fn start(launch: crate::surfaces::Launch) {
 
 fn watch(path: PathBuf, launch: crate::surfaces::Launch) {
     let mut last = mtime(&path);
+    let mut theme_path = launch.config.theme.source.clone();
+    let mut theme_last = theme_path.as_deref().and_then(mtime);
     loop {
         std::thread::sleep(Duration::from_millis(150));
-        let now = mtime(&path);
-        if now == last {
+        let config_changed = mtime(&path) != last;
+        let theme_changed = theme_path.as_deref().and_then(mtime) != theme_last;
+        if !config_changed && !theme_changed {
             continue;
         }
-        last = now;
+        last = mtime(&path);
         let mut config = Config::load(Some(path.clone()));
         let file = path.display().to_string();
         let mut problems = std::mem::take(&mut config.problems);
@@ -47,9 +48,9 @@ fn watch(path: PathBuf, launch: crate::surfaces::Launch) {
         for p in &problems {
             eprintln!("dusk: {p}");
         }
-        if config.theme.id.is_empty() {
-            config.theme = Theme::default();
-        }
+        // The next edit may be in a different theme file, or the theme may have been removed.
+        theme_path = config.theme.source.clone();
+        theme_last = theme_path.as_deref().and_then(mtime);
         let config = Arc::new(config);
         model::set_context(Context {
             config: config.clone(),
@@ -65,11 +66,6 @@ fn watch(path: PathBuf, launch: crate::surfaces::Launch) {
     }
 }
 
-fn mtime(path: &PathBuf) -> Option<SystemTime> {
+fn mtime(path: &Path) -> Option<SystemTime> {
     std::fs::metadata(path).ok().and_then(|m| m.modified().ok())
-}
-
-#[allow(dead_code)]
-fn first_problem(problems: &[Problem]) -> Option<Problem> {
-    problems.first().cloned()
 }
