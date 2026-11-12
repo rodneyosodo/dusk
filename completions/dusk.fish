@@ -1,0 +1,13 @@
+complete -c dusk -f
+complete -c dusk -n '__fish_use_subcommand' -a check -d 'report problems with line numbers'
+complete -c dusk -n '__fish_use_subcommand' -a preview -d 'live-reloading preview; actions only print'
+complete -c dusk -n '__fish_use_subcommand' -a doctor -d 'layer-shell, blur rule, locker and logind'
+complete -c dusk -n '__fish_use_subcommand' -a init -d 'write a commented starter config'
+complete -c dusk -n '__fish_use_subcommand' -a help -d 'show help'
+complete -c dusk -n '__fish_use_subcommand' -a version -d 'show the version'
+complete -c dusk -n '__fish_seen_subcommand_from check preview' -a '(__fish_complete_path)' -d 'config path'
+complete -c dusk -l config -r -a '(__fish_complete_path)' -d 'use this config'
+complete -c dusk -l dry-run -d 'the real menu, but actions only print'
+complete -c dusk -l force -d 'with init, overwrite an existing config'
+complete -c dusk -s h -l help -d 'show help'
+complete -c dusk -s V -l version -d 'show the version'
