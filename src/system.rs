@@ -183,8 +183,15 @@ pub fn watch_session(close: std::sync::Arc<dyn Fn() + Send + Sync>) {
             };
             let mut announced = false;
             loop {
-                let result =
-                    runtime.block_on(watch_session_once(&close, &ready_tx, &mut announced));
+                let result = runtime.block_on(async {
+                    let mut ready = || {
+                        if !announced {
+                            let _ = ready_tx.send(());
+                            announced = true;
+                        }
+                    };
+                    watch_session_once(&close, &mut ready).await
+                });
                 if !announced {
                     let _ = ready_tx.send(());
                     announced = true;
@@ -208,13 +215,22 @@ pub fn watch_session(close: std::sync::Arc<dyn Fn() + Send + Sync>) {
 
 async fn watch_session_once(
     close: &std::sync::Arc<dyn Fn() + Send + Sync>,
-    ready: &std::sync::mpsc::Sender<()>,
-    announced: &mut bool,
+    ready: &mut dyn FnMut(),
+) -> Result<bool, zbus::Error> {
+    let conn = zbus::Connection::system().await?;
+    watch_connection(&conn, close, ready).await
+}
+
+/// The signal half of the watcher, split from the system-bus connection so tests can drive it
+/// over a private bus with a mock logind.
+async fn watch_connection(
+    conn: &zbus::Connection,
+    close: &std::sync::Arc<dyn Fn() + Send + Sync>,
+    ready: &mut dyn FnMut(),
 ) -> Result<bool, zbus::Error> {
     use futures_util::StreamExt;
-    let conn = zbus::Connection::system().await?;
     let manager = zbus::Proxy::new(
-        &conn,
+        conn,
         "org.freedesktop.login1",
         "/org/freedesktop/login1",
         "org.freedesktop.login1.Manager",
@@ -225,7 +241,7 @@ async fn watch_session_once(
     let mut lock = match path {
         Some(path) => {
             let session = zbus::Proxy::new(
-                &conn,
+                conn,
                 "org.freedesktop.login1",
                 path.as_str(),
                 "org.freedesktop.login1.Session",
@@ -236,10 +252,7 @@ async fn watch_session_once(
             // catches that window.
             let locked: bool = session.get_property("LockedHint").await.unwrap_or(false);
             if locked {
-                if !*announced {
-                    let _ = ready.send(());
-                    *announced = true;
-                }
+                ready();
                 close();
                 return Ok(true);
             }
@@ -247,10 +260,7 @@ async fn watch_session_once(
         }
         None => None,
     };
-    if !*announced {
-        let _ = ready.send(());
-        *announced = true;
-    }
+    ready();
     if let Some(lock) = lock.as_mut() {
         loop {
             tokio::select! {
@@ -489,5 +499,236 @@ mod tests {
             ..i
         };
         assert!(!delay.blocks("shutdown"));
+    }
+    // --- mock logind -------------------------------------------------------------
+
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    const MANAGER_PATH: &str = "/org/freedesktop/login1";
+    const SESSION_PATH: &str = "/org/freedesktop/login1/session/test";
+
+    struct Login1;
+
+    #[zbus::interface(name = "org.freedesktop.login1.Manager")]
+    impl Login1 {
+        async fn get_session(&self, _id: String) -> zbus::OwnedObjectPath {
+            session_object()
+        }
+
+        #[zbus(name = "GetSessionByPID")]
+        async fn get_session_by_pid(&self, _pid: u32) -> zbus::OwnedObjectPath {
+            session_object()
+        }
+
+        #[zbus(signal)]
+        async fn prepare_for_sleep(
+            emitter: &zbus::object_server::SignalEmitter<'_>,
+            start: bool,
+        ) -> zbus::Result<()>;
+    }
+
+    fn session_object() -> zbus::OwnedObjectPath {
+        zbus::OwnedObjectPath::try_from(SESSION_PATH).expect("valid session path")
+    }
+
+    struct Session {
+        locked: Arc<AtomicBool>,
+    }
+
+    #[zbus::interface(name = "org.freedesktop.login1.Session")]
+    impl Session {
+        #[zbus(property)]
+        async fn locked_hint(&self) -> bool {
+            self.locked.load(Ordering::SeqCst)
+        }
+
+        #[zbus(signal)]
+        async fn lock(emitter: &zbus::object_server::SignalEmitter<'_>) -> zbus::Result<()>;
+    }
+
+    struct PrivateBus {
+        child: std::process::Child,
+        address: String,
+    }
+
+    impl Drop for PrivateBus {
+        fn drop(&mut self) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+
+    fn private_bus() -> Option<PrivateBus> {
+        use std::io::BufRead;
+        let mut child = match std::process::Command::new("dbus-daemon")
+            .args(["--session", "--print-address", "--nofork"])
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                eprintln!("skipping: dbus-daemon is not installed");
+                return None;
+            }
+            Err(error) => panic!("could not start dbus-daemon: {error}"),
+        };
+        let stdout = child.stdout.take().expect("dbus-daemon stdout");
+        let mut line = String::new();
+        std::io::BufReader::new(stdout)
+            .read_line(&mut line)
+            .expect("read the private bus address");
+        let address = line.trim().to_owned();
+        assert!(!address.is_empty(), "dbus-daemon printed no address");
+        Some(PrivateBus { child, address })
+    }
+
+    fn logind_runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("tokio runtime")
+    }
+
+    async fn mock_logind(
+        bus: &PrivateBus,
+    ) -> (zbus::Connection, zbus::Connection, Arc<AtomicBool>) {
+        let server = zbus::connection::Builder::address(bus.address.as_str())
+            .build()
+            .await
+            .expect("server connection");
+        let locked = Arc::new(AtomicBool::new(false));
+        server
+            .object_server()
+            .at(MANAGER_PATH, Login1)
+            .await
+            .expect("manager object");
+        server
+            .object_server()
+            .at(
+                SESSION_PATH,
+                Session {
+                    locked: locked.clone(),
+                },
+            )
+            .await
+            .expect("session object");
+        server
+            .request_name("org.freedesktop.login1")
+            .await
+            .expect("own logind name");
+        let client = zbus::connection::Builder::address(bus.address.as_str())
+            .build()
+            .await
+            .expect("client connection");
+        (server, client, locked)
+    }
+
+    fn close_flag() -> (Arc<dyn Fn() + Send + Sync>, Arc<AtomicBool>) {
+        let closed = Arc::new(AtomicBool::new(false));
+        let flag = closed.clone();
+        let close: Arc<dyn Fn() + Send + Sync> =
+            Arc::new(move || flag.store(true, Ordering::SeqCst));
+        (close, closed)
+    }
+
+    fn sleep_emitter(server: &zbus::Connection) -> zbus::object_server::SignalEmitter<'_> {
+        zbus::object_server::SignalEmitter::new(server, MANAGER_PATH).expect("manager emitter")
+    }
+
+    #[test]
+    fn prepare_for_sleep_closes_only_when_sleeping() {
+        let Some(bus) = private_bus() else { return };
+        logind_runtime().block_on(async {
+            let (server, client, _) = mock_logind(&bus).await;
+            let (close, closed) = close_flag();
+            let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+            let mut ready_tx = Some(ready_tx);
+            let mut on_ready = || {
+                if let Some(tx) = ready_tx.take() {
+                    let _ = tx.send(());
+                }
+            };
+            let watch = watch_connection(&client, &close, &mut on_ready);
+            tokio::pin!(watch);
+            tokio::select! {
+                _ = ready_rx => {}
+                result = &mut watch => panic!("watcher stopped before it was ready: {result:?}"),
+            }
+            let emitter = sleep_emitter(&server);
+            Login1::prepare_for_sleep(&emitter, false)
+                .await
+                .expect("emit resume");
+            assert!(
+                tokio::time::timeout(std::time::Duration::from_millis(250), &mut watch)
+                    .await
+                    .is_err(),
+                "resuming must not close the menu"
+            );
+            assert!(
+                !closed.load(Ordering::SeqCst),
+                "resuming must not call close"
+            );
+            Login1::prepare_for_sleep(&emitter, true)
+                .await
+                .expect("emit sleep");
+            let result = tokio::time::timeout(std::time::Duration::from_secs(2), &mut watch)
+                .await
+                .expect("sleep did not close the menu")
+                .expect("watch error");
+            assert!(result);
+            assert!(closed.load(Ordering::SeqCst));
+        });
+    }
+
+    #[test]
+    fn a_lock_signal_closes_the_menu() {
+        let Some(bus) = private_bus() else { return };
+        logind_runtime().block_on(async {
+            let (server, client, _) = mock_logind(&bus).await;
+            let (close, closed) = close_flag();
+            let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
+            let mut ready_tx = Some(ready_tx);
+            let mut on_ready = || {
+                if let Some(tx) = ready_tx.take() {
+                    let _ = tx.send(());
+                }
+            };
+            let watch = watch_connection(&client, &close, &mut on_ready);
+            tokio::pin!(watch);
+            tokio::select! {
+                _ = ready_rx => {}
+                result = &mut watch => panic!("watcher stopped before it was ready: {result:?}"),
+            }
+            let emitter = zbus::object_server::SignalEmitter::new(&server, SESSION_PATH)
+                .expect("session emitter");
+            Session::lock(&emitter).await.expect("emit lock");
+            let result = tokio::time::timeout(std::time::Duration::from_secs(2), &mut watch)
+                .await
+                .expect("lock did not close the menu")
+                .expect("watch error");
+            assert!(result);
+            assert!(closed.load(Ordering::SeqCst));
+        });
+    }
+
+    #[test]
+    fn a_lock_before_subscribing_closes_via_the_hint() {
+        let Some(bus) = private_bus() else { return };
+        logind_runtime().block_on(async {
+            let (_server, client, locked) = mock_logind(&bus).await;
+            locked.store(true, Ordering::SeqCst);
+            let (close, closed) = close_flag();
+            let result = tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                watch_connection(&client, &close, &mut || {}),
+            )
+            .await
+            .expect("locked hint did not close the menu")
+            .expect("watch error");
+            assert!(result);
+            assert!(closed.load(Ordering::SeqCst));
+        });
     }
 }
