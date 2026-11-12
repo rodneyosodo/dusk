@@ -103,6 +103,10 @@ layer-rule {
 
 `dusk doctor` checks the rule, the locker, and logind, and prints the snippet if it is missing. Without the rule, every theme still has enough tint and shadow to read.
 
+While open, dusk closes when it loses keyboard focus, when logind locks the session, before the
+machine sleeps, and when Hyprland's monitor set changes. Reopen it after plugging or unplugging a
+display; the surfaces are rebuilt at launch.
+
 A recovery bind is useful if a menu ever hangs:
 
 ```ini
