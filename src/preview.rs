@@ -1,15 +1,13 @@
-//! `dusk preview`: watch the config's mtime and swap the live menu's look without restarting.
-//! Actions only print.
+//! `dusk preview`: watch the config and theme mtimes and swap the live menu's look without
+//! restarting. Actions only print.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use crate::actions;
 use crate::config::Config;
 use crate::model::{self, Context};
-use crate::problem::Problem;
-use crate::theme::Theme;
 
 pub fn start(launch: crate::surfaces::Launch) {
     let Some(path) = launch.path.clone().or_else(|| launch.config.source.clone()) else {
@@ -23,14 +21,21 @@ pub fn start(launch: crate::surfaces::Launch) {
 }
 
 fn watch(path: PathBuf, launch: crate::surfaces::Launch) {
+    let beside = path.parent().map(Path::to_path_buf);
     let mut last = mtime(&path);
+    let mut theme_path = watch_theme(&launch.config, beside.as_deref());
+    let mut theme_last = theme_path.as_deref().and_then(mtime);
     loop {
         std::thread::sleep(Duration::from_millis(150));
         let now = mtime(&path);
-        if now == last {
+        let now_theme = theme_path.as_deref().and_then(mtime);
+        if now == last && now_theme == theme_last {
             continue;
         }
+        // Remember what was seen before loading: an edit made during the load must trigger another
+        // pass instead of being treated as already loaded.
         last = now;
+        let seen_theme = now_theme;
         let mut config = Config::load(Some(path.clone()));
         let file = path.display().to_string();
         let mut problems = std::mem::take(&mut config.problems);
@@ -47,9 +52,14 @@ fn watch(path: PathBuf, launch: crate::surfaces::Launch) {
         for p in &problems {
             eprintln!("dusk: {p}");
         }
-        if config.theme.id.is_empty() {
-            config.theme = Theme::default();
-        }
+        // The next edit may be in a different theme file, or the theme may have been removed.
+        let next_theme = watch_theme(&config, beside.as_deref());
+        theme_last = if next_theme == theme_path {
+            seen_theme
+        } else {
+            None
+        };
+        theme_path = next_theme;
         let config = Arc::new(config);
         model::set_context(Context {
             config: config.clone(),
@@ -65,11 +75,16 @@ fn watch(path: PathBuf, launch: crate::surfaces::Launch) {
     }
 }
 
-fn mtime(path: &PathBuf) -> Option<SystemTime> {
-    std::fs::metadata(path).ok().and_then(|m| m.modified().ok())
+/// The theme file this config would reload from, including a selected file that is currently
+/// missing. Built-ins are embedded and return `None`.
+fn watch_theme(config: &Config, beside: Option<&Path>) -> Option<PathBuf> {
+    config
+        .theme
+        .source
+        .clone()
+        .or_else(|| crate::theme::theme_candidate_path(&config.theme.id, beside))
 }
 
-#[allow(dead_code)]
-fn first_problem(problems: &[Problem]) -> Option<Problem> {
-    problems.first().cloned()
+fn mtime(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path).ok().and_then(|m| m.modified().ok())
 }

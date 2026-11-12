@@ -62,6 +62,12 @@ Run each with a real Hyprland session, but always with `--dry-run` or `preview`:
 - pointer, touch, background click, Esc, Tab, arrows, Home/End, and mnemonics.
 - Sway and Niri: `dusk doctor` detects the compositor and focused output, the logout action uses `swaymsg exit` / `niri msg action quit --skip-confirmation`, and a `--dry-run` menu opens on the focused monitor. These paths have unit-tested parsers but need a live session check before a release.
 
+## Preview
+
+Run `dusk preview` with a config that selects a file theme (for example `theme "foo"` in
+`~/.config/dusk/config.kdl` with `~/.config/dusk/themes/foo.kdl`). Editing either file must print
+`preview reloaded` and redraw the menu; built-in themes are embedded and have no file to watch.
+
 ## Safety rule
 
 Tests, previews and development only use `--dry-run`, `preview`, or headless runs. No automated test may reach a real power action. The action command is only spawned from `Mode::Normal`.

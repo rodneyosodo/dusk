@@ -52,12 +52,12 @@ A slash value is a percentage (`40` = 40%) unless it contains a decimal point (`
 | `backdrop-bottom` | `#2b1220/66`   | bottom of the backdrop gradient                                             |
 | `bloom-a`         | `#5b4bff/30`   | soft glow in the top-left corner                                            |
 | `bloom-b`         | `#ff6a4d/22`   | soft glow in the bottom-right corner                                        |
-| `card`            | `#ffffff/6`    | unselected card glass                                                       |
+| `card`            | `#0b0a12/82`   | unselected card and selected highlight glass                                |
 | `card-border`     | `#ffffff/12`   | card hairline (brighter at the top) and glass sheen                         |
 | `shadow`          | `#000000/55`   | card, highlight and vignette shadow                                         |
 | `icon`            | `#ffffff/96`   | icon ink                                                                    |
 | `text`            | `#f6f2fb`      | clock and selected label                                                    |
-| `text-dim`        | `#ffffff/58`   | date, unselected label, key hints, problem line                             |
+| `text-dim`        | `#ffffff/58`   | date, key hints, problem line                                              |
 | `selected-text`   | `#0d0a12`      | reserved for text on a solid accent                                         |
 | `warning`         | `#ff8b6b`      | armed action and blocker line                                               |
 | `lock`            | `#8ec8ff`      | Lock orb and highlight                                                      |
@@ -105,6 +105,11 @@ Under the system Reduce Motion setting, the entrance becomes a 150 ms fade with 
 | `header`  | `#true`  | the time and date above the cards                      |
 
 These are looks, not layouts; `halo` also sets a larger radius and small dim, and `mono` sets `layout "list"` and transparent cards.
+
+## Preview
+
+`dusk preview` watches both `config.kdl` and the selected theme file, so editing either one reloads
+the live menu. Built-in themes are embedded and do not have a file to watch.
 
 ## Built-in themes
 
