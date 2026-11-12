@@ -58,6 +58,38 @@ pub fn run(launch: Launch) -> Result<(), String> {
             let toggle_app = app_handle.clone();
             instance.serve(Arc::new(move || toggle_app.quit()));
         }
+        if !rune::is_headless() {
+            let close_app = app_handle.clone();
+            crate::system::watch_session(Arc::new(move || close_app.quit()));
+            // Rune enumerates displays once. If Hyprland's monitor set changes while the menu is
+            // open, close it rather than leave a surface on a display that no longer exists or
+            // miss a newly attached one. The next launch rebuilds the surfaces.
+            if launch.compositor == Compositor::Hyprland {
+                let initial: Vec<String> = crate::compositor::hyprland::monitors()
+                    .into_iter()
+                    .map(|m| m.name)
+                    .collect();
+                if !initial.is_empty() {
+                    let close_app = app_handle.clone();
+                    std::thread::Builder::new()
+                        .name("dusk-monitors".into())
+                        .spawn(move || {
+                            loop {
+                                std::thread::sleep(std::time::Duration::from_secs(2));
+                                let now: Vec<String> = crate::compositor::hyprland::monitors()
+                                    .into_iter()
+                                    .map(|m| m.name)
+                                    .collect();
+                                if now != initial {
+                                    close_app.quit();
+                                    break;
+                                }
+                            }
+                        })
+                        .ok();
+                }
+            }
+        }
 
         let focused = launch.compositor.focused_monitor();
         let menu_display = focused

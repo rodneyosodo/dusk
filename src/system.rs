@@ -162,6 +162,75 @@ pub fn inhibitors() -> Result<Vec<Inhibitor>, String> {
     })
 }
 
+/// Watch logind for the session locking and the machine preparing to sleep. Focus loss covers
+/// most overlays, but a lock screen or suspend can keep the compositor's keyboard focus; this
+/// closes the menu before it can sit over a locked or resumed screen.
+pub fn watch_session(close: std::sync::Arc<dyn Fn() + Send + Sync>) {
+    std::thread::Builder::new()
+        .name("dusk-logind".into())
+        .spawn(move || {
+            let result = runtime().block_on(async {
+                let conn = zbus::Connection::system().await?;
+                let manager = zbus::Proxy::new(
+                    &conn,
+                    "org.freedesktop.login1",
+                    "/org/freedesktop/login1",
+                    "org.freedesktop.login1.Manager",
+                )
+                .await?;
+                let mut sleep = manager.receive_signal("PrepareForSleep").await?;
+                let path: Option<zbus::OwnedObjectPath> = match std::env::var("XDG_SESSION_ID") {
+                    Ok(id) => manager.call("GetSession", &id).await.ok(),
+                    Err(_) => manager
+                        .call("GetSessionByPID", &(std::process::id()))
+                        .await
+                        .ok(),
+                };
+                let mut lock = match path {
+                    Some(path) => {
+                        let session = zbus::Proxy::new(
+                            &conn,
+                            "org.freedesktop.login1",
+                            path.as_str(),
+                            "org.freedesktop.login1.Session",
+                        )
+                        .await?;
+                        Some(session.receive_signal("Lock").await?)
+                    }
+                    None => None,
+                };
+                if let Some(lock) = lock.as_mut() {
+                    use futures_util::StreamExt;
+                    loop {
+                        tokio::select! {
+                            Some(message) = sleep.next() => {
+                                if message.body().deserialize::<bool>().unwrap_or(false) {
+                                    close();
+                                }
+                            }
+                            Some(_) = lock.next() => close(),
+                            else => break,
+                        }
+                    }
+                } else {
+                    use futures_util::StreamExt;
+                    while let Some(message) = sleep.next().await {
+                        if message.body().deserialize::<bool>().unwrap_or(false) {
+                            close();
+                        }
+                    }
+                }
+                Ok::<(), zbus::Error>(())
+            });
+            if let Err(error) = result
+                && std::env::var_os("DUSK_DEBUG").is_some()
+            {
+                eprintln!("dusk: session watch unavailable: {error}");
+            }
+        })
+        .ok();
+}
+
 /// The first inhibitor that blocks `what` (`shutdown` for power off as well as reboot).
 pub fn blocker(what: &str) -> Option<Inhibitor> {
     inhibitors().ok()?.into_iter().find(|i| i.blocks(what))

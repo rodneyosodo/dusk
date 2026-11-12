@@ -53,6 +53,9 @@ Run each with a real Hyprland session, but always with `--dry-run` or `preview`:
 - double launch (second closes the first);
 - a launch bind that shares a key with an action (`Super+S` must not trigger Suspend);
 - idle lock and suspend while open;
+  - synthetic check: `busctl emit --system /org/freedesktop/login1 \
+    org.freedesktop.login1.Manager PrepareForSleep b true`, and the session `Lock` signal from
+    `loginctl`'s session path; both must close the menu.
 - a hung process (watchdog removes the surface);
 - a polkit prompt (it must appear after the menu is gone);
 - an active block inhibitor (the menu stays and names the blocker);
