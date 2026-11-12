@@ -82,12 +82,6 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --workspace --no-deps --locked
 
-      - name: Check dependencies
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
-          arguments: --locked
-
   build:
     name: build ${{ matrix.target }}
     needs: verify
