@@ -34,7 +34,7 @@ tokens {
 }
 
 tokens "light" {
-    dim "#ffffff/72"
+    dim "#ffffff/88"
     backdrop-top "#f4f1ea/40"
     backdrop-bottom "#efe6e0/34"
     card "#000000/0"

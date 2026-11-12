@@ -11,7 +11,7 @@ tokens {
     dim "#000000/18"
     backdrop-top "#171129/20"
     backdrop-bottom "#341822/18"
-    card "#0b0a12/82"
+    card "#0b0a12/90"
     card-border "#ffffff/20"
     shadow "#000000/30"
     radius 34

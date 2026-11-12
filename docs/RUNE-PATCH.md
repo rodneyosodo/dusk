@@ -13,7 +13,7 @@ Upstream Rune does not take pull requests, and dusk pins its `dev` revision at `
 rune = { git = "https://github.com/rodneyosodo/rune", rev = "841b58aede1c55b26bda049145b26e54a2b5617b", ... }
 ```
 
-There is no `vendor/` copy in the repo. A clean build fetches that one git dependency; `Cargo.lock` records the commit. The release source tarball embeds `cargo vendor` output, so the AUR package builds `--offline`. For a local offline build, run `cargo vendor` and point `.cargo/config.toml` at the result.
+There is no `vendor/` copy in the repo. A clean build fetches that one git dependency; `Cargo.lock` records the commit. For an offline build, run `cargo vendor` and point `.cargo/config.toml` at the result.
 
 ## The fixes
 

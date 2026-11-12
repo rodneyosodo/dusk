@@ -112,7 +112,7 @@ impl Tokens {
             dim: hex("#07060c").expect("valid").alpha(0.62),
             backdrop_top: hex("#1a1433").expect("valid").alpha(0.70),
             backdrop_bottom: hex("#2b1220").expect("valid").alpha(0.66),
-            card: hex("#0b0a12").expect("valid").alpha(0.62),
+            card: hex("#0b0a12").expect("valid").alpha(0.82),
             card_border: Color::WHITE.alpha(0.12),
             shadow: Color::BLACK.alpha(0.55),
             icon: Color::WHITE.alpha(0.96),
@@ -152,7 +152,7 @@ impl Tokens {
         t.dim = hex("#f6f3fa").expect("valid").alpha(0.62);
         t.backdrop_top = hex("#ece6fb").expect("valid").alpha(0.72);
         t.backdrop_bottom = hex("#fbeae4").expect("valid").alpha(0.66);
-        t.card = Color::WHITE.alpha(0.72);
+        t.card = Color::WHITE.alpha(0.82);
         t.card_border = Color::BLACK.alpha(0.09);
         t.shadow = hex("#2a1f45").expect("valid").alpha(0.16);
         t.bloom_a = hex("#8f7bff").expect("valid").alpha(0.28);
@@ -276,6 +276,30 @@ impl Theme {
             apply_token_node(&mut self.light, node, file, source, problems);
         }
     }
+}
+
+/// Where a theme selection would live on disk, even if the file is missing. Built-ins return
+/// `None` because they are embedded; preview uses this to keep watching a theme that is being
+/// deleted/recreated.
+pub fn theme_candidate_path(name: &str, beside: Option<&Path>) -> Option<PathBuf> {
+    if Theme::builtin(name).is_some() {
+        return None;
+    }
+    let path = if let Some(rest) = name.strip_prefix("~/") {
+        match std::env::var_os("HOME") {
+            Some(home) => PathBuf::from(home).join(rest),
+            None => PathBuf::from(name),
+        }
+    } else {
+        PathBuf::from(name)
+    };
+    if path.is_absolute() || name.contains('/') || name.ends_with(".kdl") {
+        return Some(path);
+    }
+    if let Some(dir) = beside {
+        return Some(dir.join("themes").join(format!("{name}.kdl")));
+    }
+    config_dir().map(|dir| dir.join("themes").join(format!("{name}.kdl")))
 }
 
 fn read_candidate(name: &str, beside: Option<&Path>) -> Option<(String, PathBuf)> {
@@ -811,27 +835,23 @@ mod tests {
             for (name, t) in [("dark", &theme.dark), ("light", &theme.light)] {
                 for wallpaper in [Color::WHITE, Color::BLACK] {
                     let bg = over(t.card, over(t.dim, wallpaper));
-                    let text = over(t.text, bg);
-                    let dim = over(t.text_dim, bg);
-                    let icon = over(t.icon, bg);
-                    assert!(
-                        contrast(text, bg) >= 4.5,
-                        "{id} {name} text contrast {:.2} on {}",
-                        contrast(text, bg),
-                        wallpaper.hex()
-                    );
-                    assert!(
-                        contrast(dim, bg) >= 3.0,
-                        "{id} {name} dim contrast {:.2} on {}",
-                        contrast(dim, bg),
-                        wallpaper.hex()
-                    );
-                    assert!(
-                        contrast(icon, bg) >= 3.0,
-                        "{id} {name} icon contrast {:.2} on {}",
-                        contrast(icon, bg),
-                        wallpaper.hex()
-                    );
+                    // Unselected labels are drawn at 0.90, icons and hints at full token
+                    // alpha, so test the ink as rendered rather than the bare token.
+                    let checks = [
+                        ("selected label", over(t.text, bg), 4.5),
+                        ("label", over(t.text.alpha(0.90), bg), 4.5),
+                        ("dim text", over(t.text_dim, bg), 3.0),
+                        ("hint", over(t.text_dim, bg), 3.0),
+                        ("icon", over(t.icon, bg), 3.0),
+                    ];
+                    for (what, ink, want) in checks {
+                        let got = contrast(ink, bg);
+                        assert!(
+                            got >= want,
+                            "{id} {name} {what} contrast {got:.2} < {want} on {}",
+                            wallpaper.hex()
+                        );
+                    }
                 }
             }
         }

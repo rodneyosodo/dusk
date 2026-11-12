@@ -176,7 +176,7 @@ Use `--dry-run`, `preview`, or a headless run while developing. They can never r
 
 ## Development
 
-`docs/M0.md` records the Rune risks answered on a real Hyprland session, `docs/TESTING.md` has the headless scene set and manual matrix, and `docs/RELEASE.md` is the ship checklist. `AGENTS.md` is the short guide for a coding agent.
+`docs/TESTING.md` has the headless scene set and manual matrix, `docs/THEMING.md` documents every token, and `docs/RUNE-PATCH.md` records the Rune fixes this build depends on.
 
 ```sh
 cargo test

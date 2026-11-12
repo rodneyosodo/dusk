@@ -60,7 +60,7 @@ pub fn card(
         .padding(if compact { 0.0 } else { t.padding });
 
     if compact {
-        let ink = if selected { t.icon } else { t.icon.alpha(0.66) };
+        let ink = t.icon;
         cell = cell.child(icon_for(action, t.icon_size, ink));
         if let Some(armed) = armed {
             let d = t.card_w.min(t.card_h) + 8.0;
@@ -78,7 +78,7 @@ pub fn card(
         } else if selected {
             t.text
         } else {
-            t.text.alpha(0.74)
+            t.text.alpha(0.90)
         };
         let family = if t.mono {
             Family::SystemMono
@@ -271,7 +271,7 @@ pub fn list_row(
     } else if selected {
         t.text
     } else {
-        t.text.alpha(0.72)
+        t.text.alpha(0.90)
     };
     let mut r = row()
         .key(format!("dusk/card/{}", action.id))
@@ -282,11 +282,7 @@ pub fn list_row(
         .px(t.padding)
         .center_y()
         .gap(12.0)
-        .child(icon_for(
-            action,
-            t.icon_size.min(h - 12.0),
-            if selected { t.icon } else { t.icon.alpha(0.65) },
-        ))
+        .child(icon_for(action, t.icon_size.min(h - 12.0), t.icon))
         .child(
             text(label)
                 .font(TextStyle::new(t.label_size, t.label_weight).family(Family::SystemMono))
@@ -297,7 +293,7 @@ pub fn list_row(
         .child(
             text(action_hint(action))
                 .font(TextStyle::new(t.key_size, 500.0).family(Family::SystemMono))
-                .color(t.text_dim.alpha(0.55)),
+                .color(t.text_dim),
         );
     if let Some(key) = action.key {
         r = r.child(keycap(t, &key.to_ascii_uppercase().to_string()));
