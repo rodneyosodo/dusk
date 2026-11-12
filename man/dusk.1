@@ -1,0 +1,142 @@
+.TH DUSK 1 "2026-11-06" "dusk 0.1.0" "User Commands"
+.SH NAME
+dusk \- a logout and power menu for Hyprland
+.SH SYNOPSIS
+.B dusk
+.RI [ options ]
+.br
+.B dusk check
+.RI [ path ]
+.br
+.B dusk preview
+.RI [ path ]
+.br
+.B dusk doctor
+.br
+.B dusk init
+.SH DESCRIPTION
+.B dusk
+opens one fullscreen layer-surface menu on the focused monitor and a dim-only surface on every
+other monitor. Choosing an action runs it and exits; pressing the keybind again closes a running
+menu. No background daemon is left behind.
+.PP
+With no config file dusk uses the built-in
+.B dusk
+theme. The config lives at
+.I ~/.config/dusk/config.kdl
+(or
+.IR $XDG_CONFIG_HOME/dusk/config.kdl ).
+.SH COMMANDS
+.TP
+.B dusk
+Open the menu, or close it if it is already open. A second launch signals the first instance over
+a Unix socket under
+.IR $XDG_RUNTIME_DIR .
+.TP
+.BI "dusk check [" path ]
+Parse the config and every action override, reporting file and line numbers. Exits non-zero when
+there is a problem; the menu would still open with the settings that parsed.
+.TP
+.BI "dusk preview [" path ]
+Open the real menu with live reload. Saving the config swaps the look and tokens. Actions only
+print.
+.TP
+.B dusk doctor
+Report the session, compositor, layer-shell, Hyprland blur rule, locker, notification tool and
+logind capabilities and inhibitors.
+.TP
+.B dusk init
+Write a commented starter config, if none exists, and print the Hyprland blur rule.
+.SH OPTIONS
+.TP
+.B \-\-config PATH
+Use
+.I PATH
+instead of the default config.
+.TP
+.B \-\-dry\-run
+Open the real menu, but actions only print. This is the safe way to try a config.
+.TP
+.B \-\-force
+With
+.B init
+, overwrite an existing config.
+.TP
+.BR \-h ", " \-\-help
+Show help.
+.TP
+.BR \-V ", " \-\-version
+Show the version.
+.PP
+Rune's headless flags pass through:
+.BR \-\-snap " FILE, " \-\-scene " NAME, " \-\-tree " FILE, " \-\-script " FILE, "
+.BR \-\-frames " N, " \-\-at " SECONDS, " \-\-size " WxH, " \-\-theme " light|dark."
+.SH CONFIGURATION
+A config is KDL and is merged over the theme:
+.PP
+.nf
+theme "dusk"
+layout "row"
+appearance "auto"
+tokens { accent "#d38be0"; radius 28 }
+tokens "light" { dim "white/40" }
+hide "hibernate"
+order "lock" "logout" "suspend" "reboot" "shutdown"
+action "logout" { run "hyprshutdown"; key "e" }
+action "firmware" {
+    label "Firmware"
+    icon "~/.config/dusk/icons/chip.svg"
+    run "systemctl reboot --firmware-setup"
+    key "f"
+    confirm #true
+}
+.fi
+.PP
+Themes are looks only: they may set
+.BR extends ", " layout " and " tokens .
+An action, hide/order or appearance setting in a theme is reported and ignored.
+.SH FILES
+.TP
+.I ~/.config/dusk/config.kdl
+The config.
+.TP
+.I ~/.config/dusk/themes/*.kdl
+Themes by id.
+.TP
+.I $XDG_RUNTIME_DIR/dusk.lock
+Single-instance lock.
+.TP
+.I $XDG_RUNTIME_DIR/dusk.sock
+Toggle socket.
+.SH EXIT STATUS
+.TP
+.B 0
+Success, closed, or toggled another instance.
+.TP
+.B 1
+.B check
+found problems.
+.TP
+.B 3
+No display, event loop, layer-shell surface or renderer.
+.TP
+.B 70
+The watchdog found the menu unresponsive and removed it.
+.SH SAFETY
+Shutdown, reboot and log out need a second press within three seconds. Key repeat, held launch
+keys and a second press within 250 ms never count. Lock and suspend fire at once, unless the action
+sets
+.BR confirm " #true."
+Built-ins appear only when logind returns
+.B yes
+or
+.BR challenge ;
+an inhibitor keeps the menu open and names the blocker. All surfaces are destroyed before a
+command is spawned. Automated tests and development should use
+.BR \-\-dry\-run ,
+.B preview
+or a headless run.
+.SH SEE ALSO
+.BR hyprctl (1),
+.BR loginctl (1),
+.BR systemd-inhibit (1)
