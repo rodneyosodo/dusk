@@ -1,0 +1,47 @@
+// mono — a monospace list with visible keys and no glass, for terminal-minded setups.
+extends "dusk"
+layout "list"
+
+tokens {
+    mono #true
+    header #false
+    orb-size 0
+    bloom-a "#a8e6cf/6"
+    bloom-b "#a8e6cf/0"
+    dim "#000000/72"
+    backdrop-top "#101014/40"
+    backdrop-bottom "#181014/34"
+    card "#000000/0"
+    card-border "#ffffff/10"
+    shadow "#000000/24"
+    icon "#a8e6cf"
+    text "#e8e6e3"
+    text-dim "#ffffff/54"
+    accent "#a8e6cf"
+    radius 4
+    card-width 420
+    card-height 48
+    gap 2
+    icon-size 20
+    label-size 13
+    label-weight 500
+    key-size 11
+    padding 12
+    enter-ms 180
+    exit-ms 90
+    stagger-ms 16
+    spring-bounce 0
+}
+
+tokens "light" {
+    dim "#ffffff/72"
+    backdrop-top "#f4f1ea/40"
+    backdrop-bottom "#efe6e0/34"
+    card "#000000/0"
+    card-border "#000000/12"
+    shadow "#000000/10"
+    icon "#177f72"
+    text "#1f1d1a"
+    text-dim "#000000/55"
+    accent "#177f72"
+}

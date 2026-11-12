@@ -1,0 +1,64 @@
+// dusk — the default look: tinted glass cards with glowing icon orbs, over an indigo-to-ember
+// evening sky. A theme sets looks only: layout and tokens. Actions live in config.kdl.
+layout "row"
+
+tokens {
+    accent "#c79bff"
+    dim "#07060c/62"
+    backdrop-top "#1a1433/70"
+    backdrop-bottom "#2b1220/66"
+    bloom-a "#5b4bff/30"
+    bloom-b "#ff6a4d/22"
+    card "#ffffff/6"
+    card-border "#ffffff/12"
+    shadow "#000000/55"
+    icon "#ffffff/96"
+    text "#f6f2fb"
+    text-dim "#ffffff/58"
+    selected-text "#0d0a12"
+    warning "#ff8b6b"
+    lock "#8ec8ff"
+    suspend "#8be3d2"
+    logout "#d99af0"
+    reboot "#ffc46b"
+    shutdown "#ff7b6b"
+
+    radius 28
+    card-width 150
+    card-height 170
+    gap 18
+    icon-size 26
+    orb-size 62
+    label-size 14.5
+    label-weight 560
+    key-size 10.5
+    padding 16
+    enter-ms 260
+    exit-ms 120
+    stagger-ms 32
+    spring-bounce 0.06
+    compact #false
+    mono #false
+    header #true
+}
+
+tokens "light" {
+    dim "#f6f3fa/62"
+    backdrop-top "#ece6fb/72"
+    backdrop-bottom "#fbeae4/66"
+    bloom-a "#8f7bff/28"
+    bloom-b "#ff9a7a/24"
+    card "#ffffff/72"
+    card-border "#000000/9"
+    shadow "#2a1f45/16"
+    icon "#211a2a"
+    text "#211a2a"
+    text-dim "#000000/55"
+    selected-text "#ffffff"
+    warning "#c2412d"
+    lock "#2c6fb5"
+    suspend "#177f72"
+    logout "#8a3aa8"
+    reboot "#a55d00"
+    shutdown "#b02a22"
+}
