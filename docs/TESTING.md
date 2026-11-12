@@ -52,10 +52,10 @@ Run each with a real Hyprland session, but always with `--dry-run` or `preview`:
 - launch during a fullscreen window;
 - double launch (second closes the first);
 - a launch bind that shares a key with an action (`Super+S` must not trigger Suspend);
-- idle lock and suspend while open: lock the session manually and suspend/resume; the menu must
-  close. For a scripted test, run a private D-Bus bus with a mock service that owns
-  `org.freedesktop.login1` and emits `PrepareForSleep` / `Lock`; a `busctl emit` from another
-  connection does not satisfy zbus's sender match.
+- idle lock and suspend while open: `system::tests` starts a private bus with a mock
+  `org.freedesktop.login1` and covers `Lock`, `LockedHint` and `PrepareForSleep`. Keep the manual
+  check for a real lock and suspend/resume. A `busctl emit` from another connection does not
+  satisfy zbus's sender match, which is why the mock owns the name.
 - a hung process (watchdog removes the surface);
 - a polkit prompt (it must appear after the menu is gone);
 - an active block inhibitor (the menu stays and names the blocker);

@@ -17,8 +17,12 @@ kdl = "6.7"
 serde_json = "1"
 libc = "0.2"
 zbus = { version = "6", default-features = false, features = ["tokio"] }
-tokio = { version = "1", features = ["rt", "time", "macros"] }
+tokio = { version = "1", features = ["rt", "time", "macros", "sync"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# `service` adds the object server and interface macros used by the mock-logind tests.
+zbus = { version = "6", default-features = false, features = ["tokio", "service"] }
 
 [profile.release]
 codegen-units = 16
