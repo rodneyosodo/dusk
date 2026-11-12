@@ -180,7 +180,7 @@ jobs:
           tar -xzf dist/src.tar.gz -C dist/src
           rm dist/src.tar.gz
           # Bundle the crates and the pinned Rune commit so the AUR package can build offline.
-          ( cd "dist/src/dusk-${version}" && cargo vendor --locked vendor > .cargo/config.toml )
+          ( cd "dist/src/dusk-${version}" && mkdir -p .cargo && cargo vendor --locked vendor > .cargo/config.toml )
           tar -C dist/src -czf "dist/dusk-${version}-source.tar.gz" "dusk-${version}"
           ( cd dist && sha256sum ./*.tar.gz > SHA256SUMS )
           ls -lh dist/dusk-${version}-source.tar.gz
