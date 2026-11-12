@@ -57,6 +57,7 @@ Run each with a real Hyprland session, but always with `--dry-run` or `preview`:
 - a polkit prompt (it must appear after the menu is gone);
 - an active block inhibitor (the menu stays and names the blocker);
 - pointer, touch, background click, Esc, Tab, arrows, Home/End, and mnemonics.
+- Sway and Niri: `dusk doctor` detects the compositor and focused output, the logout action uses `swaymsg exit` / `niri msg action quit --skip-confirmation`, and a `--dry-run` menu opens on the focused monitor. These paths have unit-tested parsers but need a live session check before a release.
 
 ## Safety rule
 

@@ -1,6 +1,6 @@
 # dusk
 
-A logout and power menu for Hyprland, drawn with [Rune](https://github.com/anomalyco/rune). It looks finished with no config, and changing it takes one readable `config.kdl`.
+A logout and power menu for Wayland compositors (Hyprland, Sway and Niri), drawn with [Rune](https://github.com/anomalyco/rune). It looks finished with no config, and changing it takes one readable `config.kdl`.
 
 ![dusk](docs/screenshots/dusk.png)
 
@@ -18,7 +18,7 @@ A logout and power menu for Hyprland, drawn with [Rune](https://github.com/anoma
 
 ## Install
 
-Runtime dependencies: a Wayland session with `zwlr_layer_shell_v1` (Hyprland is the tested one), `libxkbcommon`, `libwayland-client`, a Vulkan driver, and systemd-logind. Icons and fonts are embedded. `notify-send` is used for failures when available.
+Runtime dependencies: a Wayland session with `zwlr_layer_shell_v1` (Hyprland is the tested one; Sway and Niri are supported), `libxkbcommon`, `libwayland-client`, a Vulkan driver, and systemd-logind. Icons and fonts are embedded. `notify-send` is used for failures when available.
 
 Build dependencies (Arch): `rust` (1.95 or newer), `libxkbcommon`, `wayland`, `vulkan-icd-loader`.
 
@@ -46,7 +46,11 @@ Replace `v0.1.1` with the latest tag. `cargo install` fetches the pinned Rune fo
 
 Rune is pre-release and upstream does not take pull requests. dusk pins [the fork](https://github.com/rodneyosodo/rune) at commit `841b58ae` (tag `dusk-781e2b6-focus-keymap`), which is `781e2b6` plus two Wayland layer-surface fixes. A clean build fetches that commit once; nothing is vendored in the repo. The fixes and the bump procedure are in [docs/RUNE-PATCH.md](docs/RUNE-PATCH.md).
 
-### Hyprland
+### Compositor setup
+
+Hyprland is the primary target. Sway and Niri get the same menu, focused-monitor targeting and default logout. Any other layer-shell compositor still draws the menu on the first display; set `run` on a logout action if it has no default.
+
+#### Hyprland
 
 Add a keybind. With Hyprland 0.57's Lua config:
 
@@ -74,6 +78,29 @@ layerrule = ignorealpha 0.02, ^dusk
 layerrule = noanim, ^dusk
 ```
 
+#### Sway
+
+```ini
+bindsym $mod+Escape exec dusk
+```
+
+Sway has no built-in layer blur, so dusk uses its denser veil; the theme is designed to read without blur.
+
+#### Niri
+
+```kdl
+binds {
+    Mod+Escape { spawn "dusk"; }
+}
+
+layer-rule {
+    match namespace="^dusk$"
+    background-effect {
+        blur true
+    }
+}
+```
+
 `dusk doctor` checks the rule, the locker, and logind, and prints the snippet if it is missing. Without the rule, every theme still has enough tint and shadow to read.
 
 A recovery bind is useful if a menu ever hangs:
@@ -89,7 +116,7 @@ dusk                 open, or close if already open
 dusk check [path]    report problems with line numbers; non-zero on failure
 dusk preview [path]  live-reloading preview; actions only print
 dusk doctor          layer-shell, blur rule, locker, logind capabilities
-dusk init            write a commented starter config; print the Hyprland snippet
+dusk init            write a commented starter config; print the compositor setup snippet
 dusk --dry-run       the real menu, but actions only print
 ```
 

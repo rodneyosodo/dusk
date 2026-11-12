@@ -21,33 +21,57 @@ pub fn print() {
     );
     println!("  compositor   {}", compositor.describe());
 
-    if compositor == Compositor::Hyprland {
+    if compositor != Compositor::Unknown {
         if let Some(name) = compositor.focused_monitor() {
             println!("  monitor      focused: {name}");
         } else {
-            println!("  monitor      Hyprland IPC did not answer; the first display is used");
+            println!(
+                "  monitor      {} IPC did not answer; the first display is used",
+                compositor.name()
+            );
         }
-        println!("  layer-shell  Hyprland provides it; the overlay namespace is \"dusk\"");
+        println!(
+            "  layer-shell  {} provides it; the overlay namespace is \"dusk\"",
+            compositor.name()
+        );
     } else if wayland {
         println!("  layer-shell  assumed; dusk works where zwlr_layer_shell_v1 is available");
     } else {
         println!("  layer-shell  missing: dusk needs Wayland with layer-shell");
     }
 
-    if system::blur_rule_present() {
-        println!("  blur rule    present for ^dusk");
-    } else {
-        println!("  blur rule    missing; add one line to your Hyprland config:");
-        println!();
-        println!("               {}", system::BLUR_SNIPPET_LUA);
-        println!();
-        println!("               (or, in hyprland.conf:)");
-        for line in system::BLUR_SNIPPET_CONF.lines() {
-            println!("               {line}");
+    match compositor {
+        Compositor::Hyprland => {
+            if system::blur_rule_present() {
+                println!("  blur rule    present for ^dusk");
+            } else {
+                println!("  blur rule    missing; add one line to your Hyprland config:");
+                println!();
+                println!("               {}", system::BLUR_SNIPPET_LUA);
+                println!();
+                println!("               (or, in hyprland.conf:)");
+                for line in system::BLUR_SNIPPET_CONF.lines() {
+                    println!("               {line}");
+                }
+            }
+        }
+        Compositor::Niri => {
+            if system::niri_blur_rule_present() {
+                println!("  blur rule    present for ^dusk");
+            } else {
+                println!("  blur rule    missing; add this to ~/.config/niri/config.kdl:");
+                println!();
+                for line in system::BLUR_SNIPPET_NIRI.lines() {
+                    println!("               {line}");
+                }
+            }
+        }
+        Compositor::Sway | Compositor::Unknown => {
+            println!("  blur rule    not provided by this compositor; the theme reads without it");
         }
     }
 
-    match system::locker() {
+    match system::locker(compositor) {
         Some(locker) => println!("  locker       {locker}"),
         None => {
             println!("  locker       none installed; Lock falls back to `loginctl lock-session`");
@@ -68,7 +92,7 @@ pub fn print() {
         caps.reboot.label(),
         caps.power_off.label()
     );
-    if caps.suspend.allows() && system::locker().is_none() {
+    if caps.suspend.allows() && system::locker(compositor).is_none() {
         println!("               warning: suspend has no locker; the machine would wake unlocked");
     }
 

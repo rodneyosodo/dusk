@@ -96,7 +96,7 @@ fn prepare_with(path: Option<PathBuf>, explicit: bool) -> Prepared {
     }
     let compositor = compositor::Compositor::detect();
     let caps = system::capabilities();
-    let locker = system::locker();
+    let locker = system::locker(compositor);
     let logout = system::logout_command(compositor);
     let resolved = actions::resolve(
         &config,
@@ -208,13 +208,34 @@ fn init_config(force: bool) -> Result<(), String> {
         println!("wrote {}", path.display());
     }
     println!();
-    println!("Add this to your Hyprland config so the desktop blurs behind dusk:");
-    println!();
-    println!("{}", system::BLUR_SNIPPET_LUA);
-    println!();
-    println!("Or, in an older hyprland.conf:");
-    for line in system::BLUR_SNIPPET_CONF.lines() {
-        println!("{line}");
+    match compositor::Compositor::detect() {
+        compositor::Compositor::Hyprland => {
+            println!("Add this to your Hyprland config so the desktop blurs behind dusk:");
+            println!();
+            println!("{}", system::BLUR_SNIPPET_LUA);
+            println!();
+            println!("Or, in an older hyprland.conf:");
+            for line in system::BLUR_SNIPPET_CONF.lines() {
+                println!("{line}");
+            }
+        }
+        compositor::Compositor::Niri => {
+            println!("Add this to ~/.config/niri/config.kdl so the desktop blurs behind dusk:");
+            println!();
+            for line in system::BLUR_SNIPPET_NIRI.lines() {
+                println!("{line}");
+            }
+        }
+        compositor::Compositor::Sway => {
+            println!("Add a keybind to ~/.config/sway/config:");
+            println!();
+            println!("bindsym $mod+Escape exec dusk");
+            println!();
+            println!("Sway has no built-in layer blur; dusk's veil is denser there.");
+        }
+        compositor::Compositor::Unknown => {
+            println!("No compositor-specific blur rule is needed; dusk uses its own veil.");
+        }
     }
     Ok(())
 }

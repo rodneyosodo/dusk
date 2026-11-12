@@ -66,7 +66,7 @@ A slash value is a percentage (`40` = 40%) unless it contains a decimal point (`
 | `reboot`          | `#ffc46b`      | Reboot highlight                                                            |
 | `shutdown`        | `#ff7b6b`      | Shut down highlight                                                         |
 
-Every theme is checked with and without Hyprland blur. Keep `card` opaque enough to hold text contrast on a bright wallpaper; the default dim is deliberately strong.
+Every theme is checked with and without compositor blur. Keep `card` opaque enough to hold text contrast on a bright wallpaper; the default dim is deliberately strong.
 
 ### Geometry
 

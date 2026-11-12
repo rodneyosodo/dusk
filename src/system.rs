@@ -203,8 +203,14 @@ pub fn find_command(names: &[&str]) -> Option<String> {
         .map(|name| (*name).to_owned())
 }
 
-pub fn locker() -> Option<String> {
-    find_command(&["hyprlock", "swaylock", "swaylock-effects"])
+pub fn locker(compositor: Compositor) -> Option<String> {
+    // hyprlock speaks Hyprland's IPC; the wlroots lockers work on Sway and Niri.
+    match compositor {
+        Compositor::Hyprland => {
+            find_command(&["hyprlock", "swaylock", "swaylock-effects", "gtklock"])
+        }
+        _ => find_command(&["swaylock", "swaylock-effects", "gtklock", "hyprlock"]),
+    }
 }
 
 /// The default logout command: `hyprshutdown` when installed, else the compositor's own exit.
@@ -212,7 +218,7 @@ pub fn logout_command(compositor: Compositor) -> Option<String> {
     if !compositor.supports_logout() {
         return None;
     }
-    if has_command("hyprshutdown") {
+    if compositor == Compositor::Hyprland && has_command("hyprshutdown") {
         return Some("hyprshutdown".into());
     }
     compositor.exit_command()
@@ -269,6 +275,61 @@ pub const BLUR_SNIPPET_LUA: &str = r#"hl.layer_rule({ match = { namespace = "^du
 pub const BLUR_SNIPPET_CONF: &str = r#"layerrule = blur, ^dusk
 layerrule = ignorealpha 0.02, ^dusk
 layerrule = noanim, ^dusk"#;
+
+pub const BLUR_SNIPPET_NIRI: &str = r#"layer-rule {
+    match namespace="^dusk$"
+    background-effect {
+        blur true
+    }
+}"#;
+
+/// Niri config files: `$XDG_CONFIG_HOME/niri`, or `~/.config/niri`, including `include`d KDL.
+pub fn niri_config_files() -> Vec<PathBuf> {
+    let base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")));
+    let Some(base) = base else {
+        return Vec::new();
+    };
+    let dir = base.join("niri");
+    let mut files = Vec::new();
+    collect_kdl(&dir, &mut files);
+    files
+}
+
+fn collect_kdl(dir: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_kdl(&path, files);
+        } else if path.extension().is_some_and(|e| e == "kdl") {
+            files.push(path);
+        }
+    }
+}
+
+/// Whether a niri config has a layer rule with `dusk` and `blur` in the same block.
+pub fn niri_blur_rule_present() -> bool {
+    for file in niri_config_files() {
+        let Ok(text) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let lines: Vec<&str> = text.lines().collect();
+        for (i, line) in lines.iter().enumerate() {
+            if !line.contains("layer-rule") {
+                continue;
+            }
+            let block = lines[i..lines.len().min(i + 12)].join(" ");
+            if block.contains("dusk") && block.contains("blur") {
+                return true;
+            }
+        }
+    }
+    false
+}
 
 #[cfg(test)]
 mod tests {

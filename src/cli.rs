@@ -2,14 +2,14 @@
 
 use std::path::PathBuf;
 
-pub const HELP: &str = r#"dusk — a logout and power menu for Hyprland
+pub const HELP: &str = r#"dusk — a logout and power menu for Wayland compositors
 
 USAGE
   dusk                 open, or close if already open
   dusk check [path]    report problems with line numbers; non-zero on failure
   dusk preview [path]  live-reloading preview; actions only print
   dusk doctor          layer-shell, blur rule, locker, logind capabilities
-  dusk init            write a commented starter config; print the Hyprland snippet
+  dusk init            write a commented starter config; print the compositor setup snippet
 
 OPTIONS
   --config PATH        use PATH instead of ~/.config/dusk/config.kdl

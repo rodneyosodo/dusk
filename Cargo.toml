@@ -4,7 +4,7 @@ version = "0.1.1"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
-description = "A logout and power menu for Hyprland"
+description = "A logout and power menu for Wayland compositors"
 
 [dependencies]
 rune = { git = "https://github.com/rodneyosodo/rune", rev = "841b58aede1c55b26bda049145b26e54a2b5617b", default-features = false, features = [
