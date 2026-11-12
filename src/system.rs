@@ -516,6 +516,7 @@ mod tests {
             session_object()
         }
 
+        #[zbus(name = "GetSessionByPID")]
         async fn get_session_by_pid(&self, _pid: u32) -> zbus::OwnedObjectPath {
             session_object()
         }
