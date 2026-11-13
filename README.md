@@ -33,7 +33,7 @@ Or let Cargo build and install it into `~/.cargo/bin`:
 
 ```sh
 # latest tagged release
-cargo install --git https://github.com/rodneyosodo/dusk --tag v0.1.2 --locked dusk
+cargo install --git https://github.com/rodneyosodo/dusk --tag v0.1.3 --locked dusk
 
 # main branch
 cargo install --git https://github.com/rodneyosodo/dusk --branch main --locked dusk
@@ -42,7 +42,7 @@ cargo install --git https://github.com/rodneyosodo/dusk --branch main --locked d
 cargo install --path . --locked
 ```
 
-Replace `v0.1.2` with the latest tag. `cargo install` fetches the pinned Rune fork commit, so it needs network access. Make sure `~/.cargo/bin` is on `PATH`.
+Replace `v0.1.3` with the latest tag. `cargo install` fetches the pinned Rune fork commit, so it needs network access. Make sure `~/.cargo/bin` is on `PATH`.
 
 Rune is pre-release and upstream does not take pull requests. dusk pins [the fork](https://github.com/rodneyosodo/rune) at commit `c2487b99` (tag `dusk-6ba947e5-focus-keymap`), which is upstream `dev` `6ba947e5` plus two Wayland layer-surface fixes. A clean build fetches that commit once; nothing is vendored in the repo. The fixes and the bump procedure are in [docs/RUNE-PATCH.md](docs/RUNE-PATCH.md).
 
