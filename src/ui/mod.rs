@@ -296,10 +296,13 @@ fn fit_ui_scale(
         return ui_scale;
     }
     let (w, h) = (root_w / ui_scale, root_h / ui_scale);
-    if fits_row(n, t, w) || grid_fits(n, t, w, h) {
+    let stage_h = t.card_h + BOARD_RESERVE + 2.0 * EDGE;
+    if (fits_row(n, t, w) && stage_h <= h) || grid_fits(n, t, w, h) {
         return ui_scale;
     }
-    (root_w / (board_width(t, n) + 2.0 * EDGE + 1.0)).clamp(0.55, ui_scale)
+    (root_w / (board_width(t, n) + 2.0 * EDGE + 1.0))
+        .min(root_h / stage_h)
+        .clamp(0.55, ui_scale)
 }
 
 fn effective_layout(n: usize, t: &Tokens, requested: Layout, root_w: f32, root_h: f32) -> Layout {
@@ -309,7 +312,8 @@ fn effective_layout(n: usize, t: &Tokens, requested: Layout, root_w: f32, root_h
     if fits_row(n, t, root_w) {
         return Layout::Row;
     }
-    if grid_fits(n, t, root_w, root_h) {
+    let cols = cols_for(t, root_w, n);
+    if grid_fits(n, t, root_w, root_h) && board_width(t, cols) <= root_w - 2.0 * EDGE {
         Layout::Grid
     } else {
         Layout::List
@@ -556,6 +560,26 @@ mod tests {
         assert!(scale < 0.82);
         assert!(scale >= 0.55);
         assert!(fits_row(5, &t, 640.0 / scale));
+    }
+
+    #[test]
+    fn a_short_wide_screen_shrinks_to_fit_vertically() {
+        let t = Tokens::default();
+        let scale = fit_ui_scale(0.82, 5, &t, Layout::Row, 1920.0, 400.0);
+        assert!(scale < 0.82);
+        assert!((t.card_h + BOARD_RESERVE + 2.0 * EDGE) * scale <= 400.0);
+    }
+
+    #[test]
+    fn an_over_wide_grid_card_falls_back_to_a_list() {
+        let t = Tokens {
+            card_w: 900.0,
+            ..Tokens::default()
+        };
+        assert_eq!(
+            effective_layout(1, &t, Layout::Row, 640.0, 1000.0),
+            Layout::List
+        );
     }
 
     #[test]

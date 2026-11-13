@@ -25,6 +25,7 @@ Portrait, 4K and scale:
 ```sh
 cargo run -- --scene idle --snap /tmp/portrait.png --size 800x1000
 cargo run -- --scene many --snap /tmp/4k.png --size 3840x2160
+cargo run -- --scene many --snap /tmp/portrait-many.png --size 800x1000
 cargo run -- --scene idle --snap /tmp/2x.png --size 1920x1080 --scale 2
 cargo run -- --scene idle --snap /tmp/narrow.png --size 640x320
 ```
