@@ -7,7 +7,7 @@ license = "MIT"
 description = "A logout and power menu for Wayland compositors"
 
 [dependencies]
-rune = { git = "https://github.com/rodneyosodo/rune", rev = "841b58aede1c55b26bda049145b26e54a2b5617b", default-features = false, features = [
+rune = { git = "https://github.com/rodneyosodo/rune", rev = "c2487b991f354769681f051b4805a6b4693152b8", default-features = false, features = [
   "accessibility",
   "dbus",
   "embedded-fonts",
