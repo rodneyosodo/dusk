@@ -215,6 +215,7 @@ fn poll(s: &mut MenuState, t: f64, tx: &mut Tx) -> bool {
     if s.start.is_none() {
         s.start = Some(t);
         changed = true;
+        reveal_selected(s, tx);
     }
     s.now = t;
     // A suspend/resume jumps the wall clock while the monotonic frame clock pauses. Close the
@@ -300,7 +301,16 @@ fn on_key(s: &mut MenuState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         }
         _ => {}
     }
+    reveal_selected(s, tx);
     true
+}
+
+/// Keep the selected card visible when a scrolled layout (list or many-action grid) has more
+/// content than the surface. Non-scrolling layouts ignore the request.
+fn reveal_selected(s: &MenuState, tx: &mut Tx) {
+    if let Some(action) = s.selected_action() {
+        tx.scroll_into_view(format!("dusk/card/{}", action.id));
+    }
 }
 
 fn scene_settled(s: &mut MenuState) {
