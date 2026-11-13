@@ -15,6 +15,8 @@ rune = { git = "https://github.com/rodneyosodo/rune", rev = "c2487b991f354769681
 
 There is no `vendor/` copy in the repo. A clean build fetches that one git dependency; `Cargo.lock` records the commit. For an offline build, run `cargo vendor` and point `.cargo/config.toml` at the result.
 
+Rune's text stack pulls Parley and Fontique with the `system` feature, which probes Fontconfig through `pkg-config`. Linux builds therefore need the Fontconfig development files and `pkg-config` in addition to a C toolchain.
+
 ## The fixes
 
 ### 1. Read the keymap from the start
