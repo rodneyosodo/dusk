@@ -20,7 +20,7 @@ A logout and power menu for Wayland compositors (Hyprland, Sway and Niri), drawn
 
 Runtime dependencies: a Wayland session with `zwlr_layer_shell_v1` (Hyprland is the tested one; Sway and Niri are supported), `libxkbcommon`, `libwayland-client`, a Vulkan driver, Fontconfig, and systemd-logind. Icons and fonts are embedded. `notify-send` is used for failures when available.
 
-Build dependencies (Arch): `rust` (1.95 or newer), `libxkbcommon`, `wayland`, `vulkan-icd-loader`, `fontconfig`, `pkg-config`.
+Build dependencies (Arch): `rust` (1.95 or newer), `libxkbcommon`, `wayland`, `vulkan-icd-loader`, `pkg-config`.
 
 From a checkout:
 

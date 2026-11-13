@@ -19,6 +19,9 @@ libc = "0.2"
 zbus = { version = "6", default-features = false, features = ["tokio"] }
 tokio = { version = "1", features = ["rt", "time", "macros", "sync"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+# Feature unification only: Rune pulls Fontique's system fonts, and this makes the Fontconfig
+# backend load at run time instead of requiring its development files at build time.
+fontique = { version = "0.12", default-features = false, features = ["system", "fontconfig-dlopen"] }
 
 [dev-dependencies]
 # `service` adds the object server and interface macros used by the mock-logind tests.

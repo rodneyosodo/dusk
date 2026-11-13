@@ -15,7 +15,7 @@ rune = { git = "https://github.com/rodneyosodo/rune", rev = "c2487b991f354769681
 
 There is no `vendor/` copy in the repo. A clean build fetches that one git dependency; `Cargo.lock` records the commit. For an offline build, run `cargo vendor` and point `.cargo/config.toml` at the result.
 
-Rune's text stack pulls Parley and Fontique with the `system` feature, which probes Fontconfig through `pkg-config`. Linux builds therefore need the Fontconfig development files and `pkg-config` in addition to a C toolchain.
+Rune's text stack pulls Parley and Fontique with the `system` feature. Dusk also enables Fontique's `fontconfig-dlopen` feature, so builds do not need Fontconfig development files; the library is loaded at run time, which keeps Fontconfig a normal runtime dependency.
 
 ## The fixes
 
