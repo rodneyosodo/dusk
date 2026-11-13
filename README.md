@@ -18,9 +18,9 @@ A logout and power menu for Wayland compositors (Hyprland, Sway and Niri), drawn
 
 ## Install
 
-Runtime dependencies: a Wayland session with `zwlr_layer_shell_v1` (Hyprland is the tested one; Sway and Niri are supported), `libxkbcommon`, `libwayland-client`, a Vulkan driver, and systemd-logind. Icons and fonts are embedded. `notify-send` is used for failures when available.
+Runtime dependencies: a Wayland session with `zwlr_layer_shell_v1` (Hyprland is the tested one; Sway and Niri are supported), `libxkbcommon`, `libwayland-client`, a Vulkan driver, Fontconfig, and systemd-logind. Icons and fonts are embedded. `notify-send` is used for failures when available.
 
-Build dependencies (Arch): `rust` (1.95 or newer), `libxkbcommon`, `wayland`, `vulkan-icd-loader`.
+Build dependencies (Arch): `rust` (1.95 or newer), `libxkbcommon`, `wayland`, `vulkan-icd-loader`, `pkg-config`.
 
 From a checkout:
 
@@ -44,7 +44,7 @@ cargo install --path . --locked
 
 Replace `v0.1.2` with the latest tag. `cargo install` fetches the pinned Rune fork commit, so it needs network access. Make sure `~/.cargo/bin` is on `PATH`.
 
-Rune is pre-release and upstream does not take pull requests. dusk pins [the fork](https://github.com/rodneyosodo/rune) at commit `841b58ae` (tag `dusk-781e2b6-focus-keymap`), which is `781e2b6` plus two Wayland layer-surface fixes. A clean build fetches that commit once; nothing is vendored in the repo. The fixes and the bump procedure are in [docs/RUNE-PATCH.md](docs/RUNE-PATCH.md).
+Rune is pre-release and upstream does not take pull requests. dusk pins [the fork](https://github.com/rodneyosodo/rune) at commit `c2487b99` (tag `dusk-6ba947e5-focus-keymap`), which is upstream `dev` `6ba947e5` plus two Wayland layer-surface fixes. A clean build fetches that commit once; nothing is vendored in the repo. The fixes and the bump procedure are in [docs/RUNE-PATCH.md](docs/RUNE-PATCH.md).
 
 ### Compositor setup
 

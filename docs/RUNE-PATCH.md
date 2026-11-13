@@ -1,19 +1,21 @@
 # The Rune fork
 
-Upstream Rune does not take pull requests, and dusk pins its `dev` revision at `781e2b6`. Two Wayland layer-surface bugs block dusk there, so they are carried in a fork:
+Upstream Rune does not take pull requests, and dusk pins a fork of `dev` based on `6ba947e5`. Two Wayland layer-surface bugs block dusk there, so they are carried in a fork:
 
 - Fork: [rodneyosodo/rune](https://github.com/rodneyosodo/rune)
 - Upstream tracking: [anomalyco/rune#623](https://github.com/anomalyco/rune/issues/623) (focus) and [anomalyco/rune#319](https://github.com/anomalyco/rune/issues/319) (keymap fd)
-- Branch at dusk's revision: `fix/wayland-layer-keyboard-781e2b6`, commit `841b58ae`, tag `dusk-781e2b6-focus-keymap`
-- Branch on current `dev`: `fix/wayland-layer-keyboard`, commit `615008e4`
+- Branch at dusk's revision: `fix/wayland-layer-keyboard`, commit `c2487b99`, based on `dev` `6ba947e5`, tag `dusk-6ba947e5-focus-keymap`
+- The previous pin is kept on `fix/wayland-layer-keyboard-781e2b6` (`841b58ae`, tag `dusk-781e2b6-focus-keymap`)
 
 `Cargo.toml` pins the commit directly:
 
 ```toml
-rune = { git = "https://github.com/rodneyosodo/rune", rev = "841b58aede1c55b26bda049145b26e54a2b5617b", ... }
+rune = { git = "https://github.com/rodneyosodo/rune", rev = "c2487b991f354769681f051b4805a6b4693152b8", ... }
 ```
 
 There is no `vendor/` copy in the repo. A clean build fetches that one git dependency; `Cargo.lock` records the commit. For an offline build, run `cargo vendor` and point `.cargo/config.toml` at the result.
+
+Rune's text stack pulls Parley and Fontique with the `system` feature. Dusk also enables Fontique's `fontconfig-dlopen` feature, so builds do not need Fontconfig development files; the library is loaded at run time, which keeps Fontconfig a normal runtime dependency.
 
 ## The fixes
 
