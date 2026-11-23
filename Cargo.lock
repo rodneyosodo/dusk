@@ -744,7 +744,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 name = "dusk"
 version = "0.1.3"
 dependencies = [
- "fontique 0.13.0",
+ "fontique",
  "futures-util",
  "kdl",
  "libc",
@@ -917,29 +917,7 @@ dependencies = [
  "objc2-core-text",
  "objc2-foundation 0.3.2",
  "parlance",
- "read-fonts 0.41.0",
- "roxmltree 0.21.2",
- "smallvec",
- "windows",
- "windows-core",
- "yeslogic-fontconfig-sys",
-]
-
-[[package]]
-name = "fontique"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb17c03da08e75b2a84346a7548f34c038fa24d9d5cb12b1ed18c1ea8dbe86d8"
-dependencies = [
- "hashbrown 0.17.1",
- "linebender_resource_handle",
- "memmap2",
- "objc2 0.6.5",
- "objc2-core-foundation",
- "objc2-core-text",
- "objc2-foundation 0.3.2",
- "parlance",
- "read-fonts 0.46.0",
+ "read-fonts",
  "roxmltree 0.21.2",
  "smallvec",
  "windows",
@@ -1106,7 +1084,7 @@ checksum = "c03d949a14aa089bbb282f7dd76a498a7f684428e4257202efc119ec010376f9"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
- "read-fonts 0.41.0",
+ "read-fonts",
  "smallvec",
 ]
 
@@ -2165,7 +2143,7 @@ version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61bd0c0c1737f0b3d3726dc06b225083af213b61913e4fbae1670613a106c6ce"
 dependencies = [
- "fontique 0.12.0",
+ "fontique",
  "hashbrown 0.17.1",
  "linebender_resource_handle",
  "parlance",
@@ -2194,7 +2172,7 @@ name = "parley_engine"
 version = "0.12.0"
 source = "git+https://github.com/anomalyco/rune?rev=1ba38527f375b5444141dec55af1b387b56316d6#1ba38527f375b5444141dec55af1b387b56316d6"
 dependencies = [
- "fontique 0.12.0",
+ "fontique",
  "harfrust",
  "hashbrown 0.17.1",
  "icu_locale_core",
@@ -2513,20 +2491,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "read-fonts"
-version = "0.46.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdaa4fffe9ff3ca2c353fa9729792805b9b3e324695ff5a081f860612e81b330"
-dependencies = [
- "bytemuck",
- "foldhash 0.2.0",
- "font-types",
- "once_cell",
- "smallvec",
- "yoke",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2810,7 +2774,7 @@ version = "0.0.1"
 source = "git+https://github.com/anomalyco/rune?rev=1ba38527f375b5444141dec55af1b387b56316d6#1ba38527f375b5444141dec55af1b387b56316d6"
 dependencies = [
  "bytemuck",
- "fontique 0.12.0",
+ "fontique",
  "icu_properties",
  "icu_segmenter",
  "objc2-core-foundation",
@@ -3052,7 +3016,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "819ab7d62b1d3e72d9d9dea5650bac30424f9111364bb94928dbf5ecad1baa68"
 dependencies = [
  "bytemuck",
- "read-fonts 0.41.0",
+ "read-fonts",
 ]
 
 [[package]]
