@@ -7,7 +7,7 @@ license = "MIT"
 description = "A logout and power menu for Wayland compositors"
 
 [dependencies]
-rune = { git = "https://github.com/rodneyosodo/rune", rev = "c2487b991f354769681f051b4805a6b4693152b8", default-features = false, features = [
+rune = { git = "https://github.com/anomalyco/rune", rev = "1ba38527f375b5444141dec55af1b387b56316d6", default-features = false, features = [
   "accessibility",
   "dbus",
   "embedded-fonts",
@@ -16,12 +16,12 @@ rune = { git = "https://github.com/rodneyosodo/rune", rev = "c2487b991f354769681
 kdl = "6.7"
 serde_json = "1"
 libc = "0.2"
-zbus = { version = "6", default-features = false, features = ["tokio"] }
+zbus = { version = "6", default-features = false, features = ["tokio", "proxy"] }
 tokio = { version = "1", features = ["rt", "time", "macros", "sync"] }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
-# Feature unification only: Rune pulls Fontique's system fonts, and this makes the Fontconfig
-# backend load at run time instead of requiring its development files at build time.
-fontique = { version = "0.13", default-features = false, features = [
+# Feature unification only: this version must match the Fontique that Rune resolves. It makes
+# the Fontconfig backend load at run time instead of requiring its development files to build.
+fontique = { version = "0.12", default-features = false, features = [
   "system",
   "fontconfig-dlopen",
 ] }
@@ -34,3 +34,13 @@ zbus = { version = "6", default-features = false, features = ["tokio", "service"
 codegen-units = 16
 lto = "thin"
 strip = true
+
+[patch.crates-io]
+# A dependency's `[patch]` does not apply to the app, so dusk repeats Rune's vendor set.
+# parley_engine carries the `line-dictionaries` feature; winit and sctk-adwaita carry the
+# Wayland corner-radius extension; accesskit_* are the backends Rune builds against.
+parley_engine = { git = "https://github.com/anomalyco/rune", rev = "1ba38527f375b5444141dec55af1b387b56316d6" }
+winit = { git = "https://github.com/anomalyco/rune", rev = "1ba38527f375b5444141dec55af1b387b56316d6" }
+sctk-adwaita = { git = "https://github.com/anomalyco/rune", rev = "1ba38527f375b5444141dec55af1b387b56316d6" }
+accesskit_windows = { git = "https://github.com/anomalyco/rune", rev = "1ba38527f375b5444141dec55af1b387b56316d6" }
+accesskit_macos = { git = "https://github.com/anomalyco/rune", rev = "1ba38527f375b5444141dec55af1b387b56316d6" }

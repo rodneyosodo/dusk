@@ -42,9 +42,9 @@ cargo install --git https://github.com/rodneyosodo/dusk --branch main --locked d
 cargo install --path . --locked
 ```
 
-Replace `v0.1.3` with the latest tag. `cargo install` fetches the pinned Rune fork commit, so it needs network access. Make sure `~/.cargo/bin` is on `PATH`.
+Replace `v0.1.3` with the latest tag. `cargo install` fetches the pinned Rune commit, so it needs network access. Make sure `~/.cargo/bin` is on `PATH`.
 
-Rune is pre-release and upstream does not take pull requests. dusk pins [the fork](https://github.com/rodneyosodo/rune) at commit `c2487b99` (tag `dusk-6ba947e5-focus-keymap`), which is upstream `dev` `6ba947e5` plus two Wayland layer-surface fixes. A clean build fetches that commit once; nothing is vendored in the repo. The fixes and the bump procedure are in [docs/RUNE-PATCH.md](docs/RUNE-PATCH.md).
+Rune is pre-release, so dusk pins a commit rather than a release: [anomalyco/rune](https://github.com/anomalyco/rune) at `1ba38527` on `dev`. Both Wayland layer-surface bugs dusk used to fix in a fork are now upstream (#1222 and #1451), so the fork is retired. Rune's vendored crates do not reach an app through a dependency's `[patch]`, so dusk repeats the patches it needs in `Cargo.toml`; nothing is vendored in this repo. See [docs/RUNE-PATCH.md](docs/RUNE-PATCH.md) for the patches and the bump procedure.
 
 ### Compositor setup
 

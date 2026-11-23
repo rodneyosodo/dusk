@@ -1,57 +1,50 @@
-# The Rune fork
+# Rune
 
-Upstream Rune does not take pull requests, and dusk pins a fork of `dev` based on `6ba947e5`. Two Wayland layer-surface bugs block dusk there, so they are carried in a fork:
+dusk pins upstream Rune at a commit on `dev`, not a fork:
 
-- Fork: [rodneyosodo/rune](https://github.com/rodneyosodo/rune)
-- Upstream tracking: [anomalyco/rune#623](https://github.com/anomalyco/rune/issues/623) (focus) and [anomalyco/rune#319](https://github.com/anomalyco/rune/issues/319) (keymap fd)
-- Branch at dusk's revision: `fix/wayland-layer-keyboard`, commit `c2487b99`, based on `dev` `6ba947e5`, tag `dusk-6ba947e5-focus-keymap`
-- The previous pin is kept on `fix/wayland-layer-keyboard-781e2b6` (`841b58ae`, tag `dusk-781e2b6-focus-keymap`)
+- Upstream: [anomalyco/rune](https://github.com/anomalyco/rune)
+- Commit: `1ba38527` (`dev`, 23 November 2026)
 
-`Cargo.toml` pins the commit directly:
+The two Wayland layer-surface bugs dusk used to carry are fixed upstream:
+
+- Layer surfaces report keyboard focus: [anomalyco/rune#623](https://github.com/anomalyco/rune/issues/623), fixed in #1222 (`1dc3b333`)
+- The keymap fd is read from offset 0 without moving the shared offset: [anomalyco/rune#319](https://github.com/anomalyco/rune/issues/319), fixed in #1451 (`1e641412`)
+
+The fork (`rodneyosodo/rune`) and its tags `dusk-781e2b6-focus-keymap` and
+`dusk-6ba947e5-focus-keymap` are retired and no longer used.
+
+`Cargo.toml` pins the upstream commit:
 
 ```toml
-rune = { git = "https://github.com/rodneyosodo/rune", rev = "c2487b991f354769681f051b4805a6b4693152b8", ... }
+rune = { git = "https://github.com/anomalyco/rune", rev = "1ba38527f375b5444141dec55af1b387b56316d6", ... }
 ```
 
-There is no `vendor/` copy in the repo. A clean build fetches that one git dependency; `Cargo.lock` records the commit. For an offline build, run `cargo vendor` and point `.cargo/config.toml` at the result.
+## Vendor patches
 
-Rune's text stack pulls Parley and Fontique with the `system` feature. Dusk also enables Fontique's `fontconfig-dlopen` feature, so builds do not need Fontconfig development files; the library is loaded at run time, which keeps Fontconfig a normal runtime dependency.
+Rune patches several crates with its own vendored copies. A dependency's `[patch.crates-io]` does
+not apply to the app that depends on it, so dusk repeats the ones it needs:
 
-## The fixes
+- `parley_engine`: the text stack asks for its `line-dictionaries` feature.
+- `winit` and `sctk-adwaita`: the Wayland layer host calls winit's content-corner-radius extension.
+- `accesskit_windows` and `accesskit_macos`: the accessibility backends Rune builds against.
 
-### 1. Read the keymap from the start
+`wgpu-hal` is not repeated: its vendored version is not selected in dusk's graph.
 
-Hyprland passes `wl_keyboard.keymap` as a shared, read-only open file description whose offset can already be at the end (Hyprland sends it that way, and another client may have read it). Rune read it with `read_to_string`, got an empty string, and failed to parse a keymap:
+There is no `vendor/` copy in this repo. A clean build fetches the Rune git dependency and the
+patched crates from that same revision; `Cargo.lock` records them. For an offline build, run
+`cargo vendor` and point `.cargo/config.toml` at the result.
 
-```
-xkbcommon: ERROR: [XKB-822] Failed to parse input xkb string
-```
-
-With `state.xkb` empty, every key on a layer surface was dropped. The fix reads at offset 0 without moving the shared offset, with `pread`:
-
-```rust
-use std::os::unix::fs::FileExt;
-let file = std::fs::File::from(fd);
-if size <= 16 * 1024 * 1024 {
-    let mut buf = vec![0u8; size as usize];
-    if file.read_exact_at(&mut buf, 0).is_ok() { ... }
-}
-```
-
-`seek(0)` would also fix the read, but the fd is one shared open file description, so seeking moves the offset for every other client too.
-
-Evidence: the same fd returns 0 bytes with `read` and 35572 bytes with `mmap` or after `lseek(fd, 0, SEEK_SET)`; `xkbcli compile-keymap` accepts the map.
-
-### 2. Report layer-surface focus
-
-A layer surface is not a toplevel, so winit never sends `WindowEvent::Focused` for it. Rune only set its internal `keyboard_focus` flag, and `ConfiguredOverlay::on_focus` never ran, so an overlay could not close when the user moved to another window. The fix adds `Input::Focus(bool)`, pushes it when the flag changes, and routes it to `Runtime::window_focus` in `overlay/draw.rs`.
+Rune's text stack pulls Parley and Fontique with the `system` feature. Dusk also enables Fontique's
+`fontconfig-dlopen` feature, so builds do not need Fontconfig development files; the library is
+loaded at run time, which keeps Fontconfig a normal runtime dependency.
 
 ## Bumping Rune
 
-1. Update the fork branch (rebase on the new `dev`, or cherry-pick the two hunks).
-2. Move the tag and push it, or pin the new commit hash.
-3. Update the `rev` in `Cargo.toml`, run `cargo update -p rune`, and commit `Cargo.lock`.
-4. Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, `dusk check`, and review the headless stills.
-5. Update the commit and tag in this file.
+1. Pick a new upstream `dev` commit.
+2. Update the `rev` in the `rune` dependency and in every `[patch.crates-io]` entry together.
+3. Run `cargo update -p rune`, then `cargo test`, `cargo clippy --all-targets -- -D warnings`,
+   `dusk check`, and review the headless stills.
+4. Update the commit here and in `README.md`.
 
-If upstream fixes both bugs, drop the fork and pin the upstream revision directly. The release workflow already embeds `cargo vendor` output in the source tarball for this reason.
+If upstream starts publishing a consumable package, drop the repeated patches and pin that
+release.
