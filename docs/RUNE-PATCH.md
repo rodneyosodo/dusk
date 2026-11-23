@@ -11,7 +11,7 @@ The two Wayland layer-surface bugs dusk used to carry are fixed upstream:
 - The keymap fd is read from offset 0 without moving the shared offset: [anomalyco/rune#319](https://github.com/anomalyco/rune/issues/319), fixed in #1451 (`1e641412`)
 
 The fork (`rodneyosodo/rune`) and its tags `dusk-781e2b6-focus-keymap` and
-`dusk-6ba947e5-focus-keymap` are kept for history but are no longer used.
+`dusk-6ba947e5-focus-keymap` are retired and no longer used.
 
 `Cargo.toml` pins the upstream commit:
 
